@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan Instalasi Argen</title>
+<style>
+  :root {
+    --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --muted: #64748b; --line: #e2e8f0;
+    --accent: #2563eb; --accent-soft: #eff6ff; --code-bg: #0f172a; --code-text: #e2e8f0;
+    --warn-bg: #fffbeb; --warn-line: #fcd34d; --ok-bg: #f0fdf4; --ok-line: #86efac;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --line: #334155;
+      --accent: #60a5fa; --accent-soft: #1e3a5f; --code-bg: #020617; --code-text: #e2e8f0;
+      --warn-bg: #422006; --warn-line: #a16207; --ok-bg: #052e16; --ok-line: #15803d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 2rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  nav { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
+  nav strong { display: block; margin-bottom: 6px; }
+  nav ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 24px; }
+  nav a { color: var(--accent); text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  h2 { font-size: 1.3rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  h2 .n { background: var(--accent); color: #fff; border-radius: 999px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-size: .95rem; flex: none; }
+  h3 { font-size: 1.05rem; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  ol.steps, ul { padding-left: 22px; }
+  li { margin: 4px 0; }
+  a { color: var(--accent); }
+  code { background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 5px; font: .9em ui-monospace, Consolas, monospace; }
+  .code { position: relative; margin: 10px 0; }
+  .code pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font: .88rem/1.5 ui-monospace, Consolas, monospace; }
+  .code pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+  .copy { position: absolute; top: 8px; right: 8px; background: #334155; color: #fff; border: 0; border-radius: 6px; padding: 3px 10px; font-size: .75rem; cursor: pointer; }
+  .copy:hover { background: #475569; }
+  .note, .tip { border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: .95rem; border: 1px solid; }
+  .note { background: var(--warn-bg); border-color: var(--warn-line); }
+  .tip { background: var(--ok-bg); border-color: var(--ok-line); }
+  table { width: 100%; border-collapse: collapse; font-size: .93rem; margin: 10px 0; display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--accent-soft); white-space: nowrap; }
+  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 24px; }
+  @media (max-width: 600px) { nav ol { columns: 1; } h1 { font-size: 1.6rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Panduan Instalasi Argen</h1>
+  <p class="sub">Auto Article Generator: artikel otomatis per kata kunci dan wilayah, ditulis AI lokal (Ollama). Untuk komputer Windows baru yang belum punya Laragon maupun Ollama.</p>
+
+  <nav>
+    <strong>Daftar isi</strong>
+    <ol>
+      <li><a href="#kebutuhan">Kebutuhan</a></li>
+      <li><a href="#laragon">Pasang Laragon</a></li>
+      <li><a href="#aplikasi">Pasang aplikasi</a></li>
+      <li><a href="#port">Cek port MySQL</a></li>
+      <li><a href="#database">Database</a></li>
+      <li><a href="#ollama">Pasang Ollama</a></li>
+      <li><a href="#model">Unduh model AI</a></li>
+      <li><a href="#jalan">Jalankan aplikasi</a></li>
+      <li><a href="#pakai">Cara pakai singkat</a></li>
+      <li><a href="#masalah">Pemecahan masalah</a></li>
+    </ol>
+  </nav>
+
+  <section id="kebutuhan">
+    <h2>Kebutuhan</h2>
+    <table>
+      <tr><th>Komponen</th><th>Fungsi</th><th>Ukuran</th></tr>
+      <tr><td>Laragon (Full)</td><td>Menjalankan PHP, MySQL, dan web server</td><td>± 200 MB</td></tr>
+      <tr><td>Ollama</td><td>Menjalankan model AI di komputer sendiri</td><td>± 1 GB</td></tr>
+      <tr><td>Model AI</td><td>Penulis artikel</td><td>2–5 GB per model</td></tr>
+    </table>
+    <p>Disarankan: Windows 10/11, RAM minimal 8 GB (16 GB lebih nyaman), ruang kosong 10 GB, dan internet saat instalasi. Model 3B berjalan di CPU biasa, tetapi lebih cepat bila ada GPU.</p>
+  </section>
+
+  <section id="laragon">
+    <h2><span class="n">1</span>Pasang Laragon</h2>
+    <ol class="steps">
+      <li>Unduh <strong>Laragon Full</strong> dari <a href="https://laragon.org/download/" target="_blank" rel="noopener">laragon.org/download</a>.</li>
+      <li>Jalankan installer dan pakai lokasi bawaan <code>C:\laragon</code>.</li>
+      <li>Setelah selesai, buka <strong>Laragon</strong> lalu klik <strong>Start All</strong>. Layanan web server dan MySQL harus berjalan.</li>
+    </ol>
+    <div class="note">Jika Windows Firewall bertanya, pilih <strong>Allow access</strong>.</div>
+  </section>
+
+  <section id="aplikasi">
+    <h2><span class="n">2</span>Pasang aplikasi</h2>
+    <p>Salin seluruh folder aplikasi ini ke:</p>
+    <div class="code"><pre><code>C:\laragon\www\argen</code></pre><button class="copy">Salin</button></div>
+    <p>Pastikan <code>index.php</code>, <code>settings.php</code>, <code>generate.php</code>, <code>process.php</code>, dan <code>config.php</code> berada langsung di dalam folder <code>argen</code>, bukan di subfolder lagi.</p>
+  </section>
+
+  <section id="port">
+    <h2><span class="n">3</span>Cek port MySQL</h2>
+    <p>Aplikasi diatur memakai MySQL di <strong>port 3309</strong>, sedangkan bawaan Laragon biasanya <strong>3306</strong>. Pilih salah satu cara:</p>
+
+    <h3>Opsi A (paling mudah): sesuaikan aplikasi</h3>
+    <ol class="steps">
+      <li>Di Laragon buka <strong>Menu &gt; Preferences &gt; Services &amp; Ports</strong> dan lihat port MySQL (misalnya 3306).</li>
+      <li>Buka <code>C:\laragon\www\argen\config.php</code> dan ubah barisnya:</li>
+    </ol>
+    <div class="code"><pre><code>const DB_PORT = 3306;   // samakan dengan port MySQL di Laragon</code></pre><button class="copy">Salin</button></div>
+
+    <h3>Opsi B: sesuaikan Laragon</h3>
+    <p>Ubah port MySQL di <strong>Preferences &gt; Services &amp; Ports</strong> menjadi <code>3309</code>, lalu <strong>Stop All</strong> dan <strong>Start All</strong>.</p>
+
+    <div class="tip">Jika <code>root</code> MySQL Anda memakai password, isi juga <code>DB_PASS</code> di <code>config.php</code>.</div>
+  </section>
+
+  <section id="database">
+    <h2><span class="n">4</span>Database</h2>
+    <p>Tidak perlu membuat database manual. Saat aplikasi pertama kali dibuka, database <code>argen</code> dan semua tabelnya (<code>wilayah</code>, <code>master_templates</code>, <code>master_shortkeys</code>) dibuat otomatis.</p>
+  </section>
+
+  <section id="ollama">
+    <h2><span class="n">5</span>Pasang Ollama</h2>
+    <ol class="steps">
+      <li>Unduh installer Windows dari <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>.</li>
+      <li>Jalankan installer sampai selesai. Ollama berjalan di latar belakang (ikon llama di system tray dekat jam) pada <code>http://127.0.0.1:11434</code>.</li>
+      <li>Cek berhasil: buka <a href="http://127.0.0.1:11434" target="_blank" rel="noopener">http://127.0.0.1:11434</a> di browser. Harus muncul tulisan <strong>Ollama is running</strong>.</li>
+    </ol>
+  </section>
+
+  <section id="model">
+    <h2><span class="n">6</span>Unduh model AI</h2>
+    <p>Buka <strong>PowerShell</strong> atau <strong>Command Prompt</strong>, lalu jalankan (cukup sekali, butuh internet):</p>
+    <div class="code"><pre><code>ollama pull qwen2.5:3b</code></pre><button class="copy">Salin</button></div>
+    <table>
+      <tr><th>Perintah</th><th>Keterangan</th></tr>
+      <tr><td><code>ollama pull qwen2.5:3b</code></td><td>Cepat dan ringan, paham bahasa Indonesia. <strong>Disarankan untuk mulai.</strong></td></tr>
+      <tr><td><code>ollama pull llama3.2:3b</code></td><td>Ringan, kualitas bahasa Indonesia cukup.</td></tr>
+      <tr><td><code>ollama pull llama3:8b</code></td><td>Lebih bagus, tetapi butuh RAM ± 8 GB dan lebih lambat.</td></tr>
+    </table>
+    <div class="note">Hindari model khusus kode (misalnya <code>qwen2.5-coder</code>); tulisannya kurang baik untuk artikel.</div>
+    <p>Cek model yang terpasang:</p>
+    <div class="code"><pre><code>ollama list</code></pre><button class="copy">Salin</button></div>
+  </section>
+
+  <section id="jalan">
+    <h2><span class="n">7</span>Jalankan aplikasi</h2>
+    <ol class="steps">
+      <li>Pastikan Laragon <strong>Start All</strong> dan Ollama aktif.</li>
+      <li>Buka browser ke <code>http://localhost/argen/</code>. Setelah klik kanan Laragon &gt; <strong>Apache/Nginx &gt; Reload</strong>, bisa juga <code>http://argen.test</code>.</li>
+      <li>Dropdown <strong>Model Ollama</strong> terisi otomatis dari model yang terpasang. Jika kosong, lihat <a href="#masalah">pemecahan masalah</a>.</li>
+    </ol>
+  </section>
+
+  <section id="pakai">
+    <h2>Cara pakai singkat</h2>
+    <ol class="steps">
+      <li>Buka <strong>⚙ Pengaturan</strong> dan isi data master:
+        <ul>
+          <li><strong>Wilayah</strong>: tambah satu per satu, atau import massal (satu baris <code>Provinsi|Kota/Kab|Kecamatan|Kelurahan</code>, boleh tempel dari Excel).</li>
+          <li><strong>Shortkey</strong>: buat kata pintas sendiri, misalnya <code>cta</code>, lalu panggil dengan <code>{cta}</code>.</li>
+          <li><strong>Template</strong>: simpan template artikel yang sering dipakai.</li>
+        </ul>
+      </li>
+      <li>Kembali ke halaman utama, isi <strong>Judul Artikel</strong> dan <strong>Daftar Kata Kunci</strong> (satu per baris).</li>
+      <li>Pilih <strong>Target Wilayah</strong> dan <strong>Model Ollama</strong>.</li>
+      <li>Pilih template master atau tulis template di kolom <strong>Template Artikel</strong>.</li>
+      <li>Klik <strong>Proses &amp; Generate Artikel</strong>. Hasil muncul di <strong>Hasil Preview</strong>.</li>
+    </ol>
+
+    <h3>Daftar short key</h3>
+    <table>
+      <tr><th>Short key</th><th>Hasil</th></tr>
+      <tr><td><code>{titles}</code></td><td>Judul artikel</td></tr>
+      <tr><td><code>{keyword}</code></td><td>Kata kunci (satu per artikel)</td></tr>
+      <tr><td><code>{lokasi}</code></td><td>Satu nama wilayah acak</td></tr>
+      <tr><td><code>{3 lokasi}</code></td><td>Hingga 3 wilayah berbeda ("A, B dan C"); jika wilayah kurang, tampil semuanya</td></tr>
+      <tr><td><code>{jual|dijual|menyediakan|}</code></td><td>Satu pilihan acak (boleh kosong)</td></tr>
+      <tr><td><code>{paragraf}</code></td><td>Satu paragraf yang ditulis AI</td></tr>
+      <tr><td><code>{nama}</code></td><td>Shortkey master buatan Anda</td></tr>
+      <tr><td><code>{template:nama}</code></td><td>Menyisipkan template master lain</td></tr>
+    </table>
+
+    <h3>Contoh template</h3>
+    <div class="code"><pre><code>Kami {jual|menyediakan} {keyword} di {3 lokasi}.
+
+{paragraf}
+
+{paragraf}
+
+{cta}
+
+{paragraf}</code></pre><button class="copy">Salin</button></div>
+    <div class="note">Setiap <code>{paragraf}</code> adalah satu panggilan ke Ollama. Semakin banyak kata kunci dan <code>{paragraf}</code>, semakin lama prosesnya.</div>
+  </section>
+
+  <section id="masalah">
+    <h2>Pemecahan masalah</h2>
+    <table>
+      <tr><th>Gejala</th><th>Penyebab dan solusi</th></tr>
+      <tr><td>"Koneksi Database Gagal"</td><td>MySQL Laragon belum Start, atau port/password di <code>config.php</code> tidak sesuai (lihat langkah 3).</td></tr>
+      <tr><td>Halaman tidak terbuka (404)</td><td>Folder harus bernama <code>argen</code> dan berada di <code>C:\laragon\www\</code>. Pastikan web server Laragon menyala.</td></tr>
+      <tr><td>Dropdown model kosong / "Ollama tidak terdeteksi"</td><td>Ollama belum berjalan. Buka aplikasi <strong>Ollama</strong> dari Start Menu, cek <code>http://127.0.0.1:11434</code>, lalu muat ulang halaman.</td></tr>
+      <tr><td>"(gagal: model … not found)"</td><td>Model belum diunduh. Jalankan <code>ollama pull nama-model</code>, lalu muat ulang halaman.</td></tr>
+      <tr><td>Proses sangat lambat atau timeout</td><td>Komputer kurang kuat untuk model itu. Pakai model lebih kecil (<code>qwen2.5:3b</code>), kurangi kata kunci, atau tutup aplikasi berat lain. Batas waktu per paragraf 120 detik.</td></tr>
+      <tr><td>Tampilan polos tanpa desain</td><td>Halaman memuat Tailwind CSS dari internet. Pastikan komputer terhubung ke internet.</td></tr>
+      <tr><td>Data Wikipedia tidak muncul</td><td>Normal bila kata kunci tidak ada di Wikipedia Indonesia; AI memakai informasi umum. Perlu internet untuk mengambilnya.</td></tr>
+      <tr><td>Ekstensi <code>curl</code> tidak ada</td><td>Laragon Full sudah mengaktifkannya. Jika tidak, aktifkan <code>extension=curl</code> di <strong>Menu &gt; PHP &gt; php.ini</strong>, lalu Reload.</td></tr>
+    </table>
+
+    <h3>Struktur file</h3>
+    <table>
+      <tr><th>File</th><th>Fungsi</th></tr>
+      <tr><td><code>index.php</code></td><td>Halaman generator dan preview</td></tr>
+      <tr><td><code>settings.php</code></td><td>Pengaturan master: template, shortkey, wilayah</td></tr>
+      <tr><td><code>generate.php</code></td><td>Endpoint yang meminta Ollama menulis satu paragraf</td></tr>
+      <tr><td><code>process.php</code></td><td>Halaman hasil versi lama (belum memakai template dan shortkey master)</td></tr>
+      <tr><td><code>config.php</code></td><td>Koneksi database dan pembuatan tabel otomatis</td></tr>
+    </table>
+
+    <h3>Cadangan data</h3>
+    <p>Semua data master ada di database <code>argen</code>. Untuk mencadangkan, buka <strong>Database</strong> (HeidiSQL) di Laragon, klik kanan database <code>argen</code> &gt; <strong>Export database as SQL</strong>.</p>
+  </section>
+
+  <footer>Argen · Auto Article Generator</footer>
+</div>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.previousElementSibling.innerText;
+      var done = function () { btn.textContent = 'Tersalin'; setTimeout(function () { btn.textContent = 'Salin'; }, 1500); };
+      if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, done); }
+      else { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }
+    });
+  });
+</script>
+</body>
+</html>
