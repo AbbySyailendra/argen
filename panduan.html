@@ -164,12 +164,13 @@
           <li><strong>Wilayah</strong>: tambah satu per satu, atau import massal (satu baris <code>Provinsi|Kota/Kab|Kecamatan|Kelurahan</code>, boleh tempel dari Excel).</li>
           <li><strong>Shortkey</strong>: buat kata pintas sendiri, misalnya <code>cta</code>, lalu panggil dengan <code>{cta}</code>.</li>
           <li><strong>Template</strong>: simpan template artikel yang sering dipakai.</li>
+          <li><strong>Sumber Web</strong>: tentukan dari mana AI mengambil bahan. Bawaan: Wikipedia Indonesia. Bisa menambah wiki lain (mis. <code>en.wikipedia.org</code>), pencarian web (Bing, bisa dibatasi ke satu situs), atau alamat halaman dengan <code>{q}</code>. Gunakan tombol <strong>Uji</strong> untuk melihat apa yang berhasil diambil. Makin banyak sumber relevan, makin kaya isi artikel.</li>
         </ul>
       </li>
       <li>Kembali ke halaman utama, isi <strong>Judul Artikel</strong> dan <strong>Daftar Kata Kunci</strong> (satu per baris).</li>
       <li>Pilih <strong>Target Wilayah</strong> dan <strong>Model Ollama</strong>.</li>
       <li>Pilih template master atau tulis template di kolom <strong>Template Artikel</strong>.</li>
-      <li>Klik <strong>Proses &amp; Generate Artikel</strong>. Hasil muncul di <strong>Hasil Preview</strong>.</li>
+      <li>Klik <strong>Proses &amp; Generate Artikel</strong>. Hasil muncul di <strong>Hasil Preview</strong> dan otomatis tersimpan; lihat semuanya di <strong>📄 Artikel</strong> (cari, baca, salin, hapus).</li>
     </ol>
 
     <h3>Daftar short key</h3>
@@ -181,6 +182,7 @@
       <tr><td><code>{3 lokasi}</code></td><td>Hingga 3 wilayah berbeda ("A, B dan C"); jika wilayah kurang, tampil semuanya</td></tr>
       <tr><td><code>{jual|dijual|menyediakan|}</code></td><td>Satu pilihan acak (boleh kosong)</td></tr>
       <tr><td><code>{paragraf}</code></td><td>Satu paragraf yang ditulis AI</td></tr>
+      <tr><td><code>{paragraf: jelaskan apa itu {keyword}}</code></td><td>Satu paragraf AI sesuai instruksi Anda, berbekal referensi dari sumber web untuk kata kunci dan wilayah</td></tr>
       <tr><td><code>{nama}</code></td><td>Shortkey master buatan Anda</td></tr>
       <tr><td><code>{template:nama}</code></td><td>Menyisipkan template master lain</td></tr>
     </table>

@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 $db = db();
 
 $tab = $_GET['tab'] ?? 'templates';
-if (!in_array($tab, ['templates', 'shortkeys', 'wilayah'], true)) $tab = 'templates';
+if (!in_array($tab, ['templates', 'shortkeys', 'wilayah', 'sources'], true)) $tab = 'templates';
 
 $flash = $_GET['msg'] ?? '';
 $error = '';
@@ -62,6 +62,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($tab === 'sources') {
+        if ($action === 'save') {
+            $name = trim($_POST['name'] ?? '');
+            $type = in_array($_POST['type'] ?? '', ['mediawiki', 'web', 'page'], true) ? $_POST['type'] : 'mediawiki';
+            $url = trim($_POST['url'] ?? '');
+            $applies = in_array($_POST['applies_to'] ?? '', ['both', 'keyword', 'lokasi'], true) ? $_POST['applies_to'] : 'both';
+            $maxc = max(500, min(10000, (int) ($_POST['max_chars'] ?? 3000)));
+            $pages = max(1, min(5, (int) ($_POST['pages'] ?? 2)));
+            $prio = (int) ($_POST['priority'] ?? 10);
+            $en = isset($_POST['enabled']) ? 1 : 0;
+            if ($name === '') {
+                $error = 'Nama sumber wajib diisi.';
+            } elseif ($type !== 'web' && $url === '') {
+                $error = 'Alamat wajib diisi untuk tipe ini.';
+            } elseif ($type === 'page' && !str_contains($url, '{q')) {
+                $error = 'Tipe "Halaman" harus memuat {q} di alamat, mis. https://contoh.com/cari?q={q}';
+            } elseif ($id) {
+                $st = $db->prepare('UPDATE master_sources SET name=?, type=?, url=?, applies_to=?, max_chars=?, pages=?, priority=?, enabled=? WHERE id=?');
+                $st->bind_param('ssssiiiii', $name, $type, $url, $applies, $maxc, $pages, $prio, $en, $id);
+                $ok = $st->execute() ? 'Sumber diperbarui.' : null;
+            } else {
+                $st = $db->prepare('INSERT INTO master_sources (name, type, url, applies_to, max_chars, pages, priority, enabled) VALUES (?,?,?,?,?,?,?,?)');
+                $st->bind_param('ssssiiii', $name, $type, $url, $applies, $maxc, $pages, $prio, $en);
+                $ok = $st->execute() ? 'Sumber ditambahkan.' : null;
+            }
+            if (!$ok && !$error) $error = 'Gagal menyimpan sumber.';
+        } elseif ($action === 'delete') {
+            $db->query('DELETE FROM master_sources WHERE id=' . $id);
+            $ok = 'Sumber dihapus.';
+        } elseif ($action === 'toggle') {
+            $db->query('UPDATE master_sources SET enabled = 1 - enabled WHERE id=' . $id);
+            $ok = 'Status sumber diubah.';
+        }
+    }
+
     if ($tab === 'wilayah') {
         if ($action === 'save') {
             $f = array_map(fn($k) => trim($_POST[$k] ?? ''), ['provinsi', 'kota_kab', 'kecamatan', 'kelurahan']);
@@ -104,12 +139,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---------- Data tampilan ----------
 $editId = (int) ($_GET['edit'] ?? 0);
 $edit = null;
-$tables = ['templates' => 'master_templates', 'shortkeys' => 'master_shortkeys', 'wilayah' => 'wilayah'];
+$tables = ['templates' => 'master_templates', 'shortkeys' => 'master_shortkeys', 'wilayah' => 'wilayah', 'sources' => 'master_sources'];
 if ($editId) {
     $edit = rows('SELECT * FROM ' . $tables[$tab] . ' WHERE id=' . $editId)[0] ?? null;
 }
 // Jika gagal simpan, pertahankan isian
 if ($error && $_SERVER['REQUEST_METHOD'] === 'POST') $edit = array_merge($edit ?? [], $_POST);
+
+$srcs = rows('SELECT * FROM master_sources ORDER BY priority, id');
+
+// Uji sumber: ambil referensi untuk satu kata dan tampilkan hasilnya
+$testResult = null;
+if ($tab === 'sources' && isset($_GET['test'])) {
+    require_once __DIR__ . '/sources.php';
+    $ts = rows('SELECT * FROM master_sources WHERE id=' . (int) $_GET['test'])[0] ?? null;
+    $tq = trim($_GET['q'] ?? '');
+    if ($ts && $tq !== '') {
+        set_time_limit(120);
+        $testResult = ['src' => $ts, 'q' => $tq, 'pages' => fetch_source($ts, $tq, true)];
+    }
+}
 
 $tpls = rows('SELECT * FROM master_templates ORDER BY name');
 $keys = rows('SELECT * FROM master_shortkeys ORDER BY name');
@@ -140,13 +189,17 @@ $tabCls = fn($t) => 'px-4 py-2 rounded-lg text-sm font-medium ' . ($tab === $t ?
             <h1 class="text-3xl font-bold text-slate-900">Pengaturan Master</h1>
             <p class="text-slate-600 text-sm mt-1">Template, shortkey, dan wilayah yang bisa dipakai global di generator.</p>
         </div>
-        <a href="index.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">← Generator</a>
+        <div class="flex gap-2">
+            <a href="index.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">← Generator</a>
+            <a href="articles.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">📄 Artikel</a>
+        </div>
     </div>
 
     <div class="flex gap-2 mb-4">
         <a href="?tab=templates" class="<?= $tabCls('templates') ?>">Template (<?= count($tpls) ?>)</a>
         <a href="?tab=shortkeys" class="<?= $tabCls('shortkeys') ?>">Shortkey (<?= count($keys) ?>)</a>
         <a href="?tab=wilayah" class="<?= $tabCls('wilayah') ?>">Wilayah (<?= $wilTotal ?>)</a>
+        <a href="?tab=sources" class="<?= $tabCls('sources') ?>">Sumber Web (<?= count($srcs) ?>)</a>
     </div>
 
     <?php if ($flash): ?><div class="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm"><?= h($flash) ?></div><?php endif; ?>
@@ -213,6 +266,108 @@ $tabCls = fn($t) => 'px-4 py-2 rounded-lg text-sm font-medium ' . ($tab === $t ?
         <?php endforeach; ?>
         <?php if (!$keys): ?><div class="p-6 text-sm text-slate-500">Belum ada shortkey.</div><?php endif; ?>
     </div>
+
+<?php elseif ($tab === 'sources'):
+    $typeLabel = ['mediawiki' => 'Situs Wiki (MediaWiki)', 'web' => 'Pencarian Web', 'page' => 'Halaman / URL'];
+    $applyLabel = ['both' => 'Kata kunci & wilayah', 'keyword' => 'Kata kunci saja', 'lokasi' => 'Wilayah saja'];
+    $e = $edit ?? [];
+?>
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+        <h2 class="font-semibold mb-1"><?= $edit ? 'Edit Sumber' : 'Sumber Baru' ?></h2>
+        <p class="text-xs text-slate-500 mb-3">Referensi dari semua sumber aktif digabung dan diberikan ke AI sebelum menulis setiap paragraf. Makin banyak sumber yang relevan, makin kaya isinya.</p>
+        <form method="POST" class="space-y-3">
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="id" value="<?= (int) ($e['id'] ?? 0) ?>">
+            <div class="grid md:grid-cols-2 gap-3">
+                <input name="name" value="<?= h($e['name'] ?? '') ?>" class="<?= $input ?>" placeholder="Nama, mis. Wikipedia Inggris" required>
+                <select name="type" id="src_type" class="<?= $input ?> bg-white">
+                    <?php foreach ($typeLabel as $k => $v): ?><option value="<?= $k ?>" <?= ($e['type'] ?? 'mediawiki') === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <input name="url" id="src_url" value="<?= h($e['url'] ?? '') ?>" class="<?= $input ?> font-mono" placeholder="">
+            <p id="src_hint" class="text-xs text-slate-500"></p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <label class="text-xs text-slate-600">Dipakai untuk
+                    <select name="applies_to" class="<?= $input ?> bg-white mt-1">
+                        <?php foreach ($applyLabel as $k => $v): ?><option value="<?= $k ?>" <?= ($e['applies_to'] ?? 'both') === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="text-xs text-slate-600">Maks. karakter / halaman
+                    <input type="number" name="max_chars" min="500" max="10000" value="<?= (int) ($e['max_chars'] ?? 3000) ?>" class="<?= $input ?> mt-1">
+                </label>
+                <label class="text-xs text-slate-600">Jumlah halaman (pencarian web)
+                    <input type="number" name="pages" min="1" max="5" value="<?= (int) ($e['pages'] ?? 2) ?>" class="<?= $input ?> mt-1">
+                </label>
+                <label class="text-xs text-slate-600">Urutan (kecil = dulu)
+                    <input type="number" name="priority" value="<?= (int) ($e['priority'] ?? 10) ?>" class="<?= $input ?> mt-1">
+                </label>
+            </div>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" <?= ($e['enabled'] ?? 1) ? 'checked' : '' ?>> Aktif</label>
+            <div class="flex gap-2">
+                <button class="<?= $btn ?>">Simpan</button>
+                <?php if ($edit): ?><a href="?tab=sources" class="px-4 py-2 text-sm text-slate-600">Batal</a><?php endif; ?>
+            </div>
+        </form>
+    </div>
+
+    <?php if ($testResult): ?>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
+            <div class="font-semibold mb-2">Hasil uji: <?= h($testResult['src']['name']) ?> &middot; kata "<?= h($testResult['q']) ?>"</div>
+            <?php foreach ($testResult['pages'] as $pg): ?>
+                <div class="mb-3">
+                    <a href="<?= h($pg['url']) ?>" target="_blank" rel="noopener" class="text-blue-600 underline text-sm"><?= h($pg['title']) ?></a>
+                    <span class="text-xs text-slate-500">&middot; <?= number_format(mb_strlen($pg['text'])) ?> karakter terambil</span>
+                    <div class="text-xs text-slate-600 bg-slate-50 rounded p-2 mt-1 whitespace-pre-line"><?= h(mb_substr($pg['text'], 0, 500)) ?>...</div>
+                </div>
+            <?php endforeach; ?>
+            <?php if (!$testResult['pages']): ?><div class="text-sm text-red-700">Tidak ada konten yang berhasil diambil. Cek alamat/koneksi internet, atau situs memblokir akses otomatis.</div><?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+        <?php foreach ($srcs as $s): ?>
+            <div class="p-4 flex justify-between gap-4 <?= $s['enabled'] ? '' : 'opacity-50' ?>">
+                <div class="min-w-0">
+                    <div class="font-medium"><?= h($s['name']) ?>
+                        <span class="text-xs bg-slate-100 px-1.5 py-0.5 rounded ml-1"><?= h($typeLabel[$s['type']] ?? $s['type']) ?></span>
+                        <span class="text-xs bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded"><?= h($applyLabel[$s['applies_to']] ?? '') ?></span>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1 break-all font-mono"><?= h($s['url'] !== '' ? $s['url'] : '(seluruh web via DuckDuckGo)') ?></div>
+                    <form method="GET" class="mt-2 flex gap-2">
+                        <input type="hidden" name="tab" value="sources"><input type="hidden" name="test" value="<?= $s['id'] ?>">
+                        <input name="q" placeholder="Uji dengan kata, mis. kacang goreng" class="p-1.5 border border-slate-300 rounded text-xs w-56">
+                        <button class="text-xs text-blue-600 underline">Uji</button>
+                    </form>
+                </div>
+                <div class="flex gap-3 text-sm shrink-0 items-start">
+                    <form method="POST"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $s['id'] ?>"><button class="text-slate-600"><?= $s['enabled'] ? 'Matikan' : 'Aktifkan' ?></button></form>
+                    <a href="?tab=sources&edit=<?= $s['id'] ?>" class="text-blue-600">Edit</a>
+                    <form method="POST" onsubmit="return confirm('Hapus sumber ini?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $s['id'] ?>"><button class="text-red-600">Hapus</button></form>
+                </div>
+            </div>
+        <?php endforeach; ?>
+        <?php if (!$srcs): ?><div class="p-6 text-sm text-slate-500">Belum ada sumber. Tanpa sumber, AI menulis hanya dari pengetahuannya sendiri (lebih mudah keliru).</div><?php endif; ?>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl border border-slate-200 mt-6 text-sm text-slate-600 space-y-2">
+        <div class="font-semibold text-slate-800">Contoh pengisian</div>
+        <div><strong>Situs Wiki</strong>: <code class="bg-slate-100 px-1 rounded">en.wikipedia.org</code>, <code class="bg-slate-100 px-1 rounded">id.wikibooks.org</code>, <code class="bg-slate-100 px-1 rounded">id.wikihow.com</code>, <code class="bg-slate-100 px-1 rounded">namawiki.fandom.com</code> (hanya domain).</div>
+        <div><strong>Pencarian Web</strong>: kosongkan alamat untuk mencari di seluruh web, atau isi domain (mis. <code class="bg-slate-100 px-1 rounded">detik.com</code>) untuk membatasi ke satu situs. Aplikasi membaca beberapa hasil teratas.</div>
+        <div><strong>Halaman / URL</strong>: alamat dengan <code class="bg-slate-100 px-1 rounded">{q}</code> sebagai kata kunci, mis. <code class="bg-slate-100 px-1 rounded">https://id.wikipedia.org/wiki/{q_}</code> ({q_} = spasi jadi garis bawah).</div>
+        <div class="text-xs text-slate-500">Hormati hak cipta dan ketentuan tiap situs. Konten ditulis ulang oleh AI dan sumbernya disimpan di setiap artikel. Sebagian situs memblokir akses otomatis; gunakan tombol Uji untuk memastikan.</div>
+    </div>
+    <script>
+        (function () {
+            var t = document.getElementById('src_type'), u = document.getElementById('src_url'), h = document.getElementById('src_hint');
+            var info = {
+                mediawiki: ['en.wikipedia.org', 'Domain situs MediaWiki, tanpa https://'],
+                web: ['(kosong = seluruh web) atau domain, mis. detik.com', 'Opsional: batasi pencarian ke satu situs.'],
+                page: ['https://contoh.com/cari?q={q}', 'Alamat halaman; {q} diganti kata kunci, {q_} = spasi jadi garis bawah.']
+            };
+            function sync() { u.placeholder = info[t.value][0]; h.textContent = info[t.value][1]; }
+            t.addEventListener('change', sync); sync();
+        })();
+    </script>
 
 <?php else: ?>
     <div class="grid md:grid-cols-2 gap-6 mb-6">

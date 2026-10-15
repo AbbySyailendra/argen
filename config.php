@@ -40,6 +40,39 @@ function db(): mysqli {
         name VARCHAR(50) NOT NULL UNIQUE,
         value MEDIUMTEXT NOT NULL
     ) CHARACTER SET utf8mb4");
+    $m->query("CREATE TABLE IF NOT EXISTS master_sources (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        type VARCHAR(20) NOT NULL DEFAULT 'mediawiki',
+        url VARCHAR(500) NOT NULL DEFAULT '',
+        applies_to VARCHAR(10) NOT NULL DEFAULT 'both',
+        max_chars INT NOT NULL DEFAULT 3000,
+        pages INT NOT NULL DEFAULT 2,
+        priority INT NOT NULL DEFAULT 10,
+        enabled TINYINT NOT NULL DEFAULT 1
+    ) CHARACTER SET utf8mb4");
+    // Isi awal: Wikipedia Indonesia (sumber lain bisa ditambah di Pengaturan > Sumber Web)
+    if ((int) $m->query('SELECT COUNT(*) c FROM master_sources')->fetch_assoc()['c'] === 0) {
+        $m->query("INSERT INTO master_sources (name, type, url, applies_to, max_chars, pages, priority)
+                   VALUES ('Wikipedia Indonesia', 'mediawiki', 'id.wikipedia.org', 'both', 3000, 1, 1)");
+        $m->query("INSERT INTO master_sources (name, type, url, applies_to, max_chars, pages, priority, enabled)
+                   VALUES ('Pencarian Web (Bing)', 'web', '', 'keyword', 2500, 2, 5, 0)");   // nonaktif; aktifkan bila perlu
+    }
+    $m->query("CREATE TABLE IF NOT EXISTS articles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL DEFAULT '',
+        keyword VARCHAR(255) NOT NULL,
+        lokasi VARCHAR(255) NOT NULL DEFAULT '',
+        wilayah_target VARCHAR(255) NOT NULL DEFAULT '',
+        model VARCHAR(100) NOT NULL DEFAULT '',
+        mode VARCHAR(30) NOT NULL DEFAULT '',
+        template MEDIUMTEXT,
+        content MEDIUMTEXT NOT NULL,
+        sources TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'ok',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX (keyword), INDEX (created_at)
+    ) CHARACTER SET utf8mb4");
     return $m;
 }
 

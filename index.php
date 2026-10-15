@@ -24,6 +24,8 @@ if ($tags !== false) {
     foreach (json_decode($tags, true)['models'] ?? [] as $m) {
         $ollama_models[] = $m['name'];
     }
+    // Model umum dulu (jadi pilihan awal); model khusus kode ("coder") di urutan akhir
+    usort($ollama_models, fn($a, $b) => (str_contains($a, 'coder') <=> str_contains($b, 'coder')) ?: strcmp($b, $a));
 }
 ?>
 <!DOCTYPE html>
@@ -46,6 +48,7 @@ if ($tags !== false) {
             </div>
             <div class="flex gap-2">
                 <a href="panduan.html" target="_blank" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">📖 Panduan</a>
+                <a href="articles.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">📄 Artikel</a>
                 <a href="settings.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">⚙ Pengaturan</a>
             </div>
         </div>
@@ -54,13 +57,15 @@ if ($tags !== false) {
             
             <!-- Card 1: Input Keyword Massal -->
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <label>Judul Artikel</label>
-                <input 
-                    type="text" 
-                    name="judul_artikel" 
-                    class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none transition" 
-                    placeholder="Contoh: Resep Masakan Nusantara" 
+                <label for="judul_artikel" class="block font-semibold text-slate-700 mb-2">Judul Artikel</label>
+                <input
+                    type="text"
+                    id="judul_artikel"
+                    name="judul_artikel"
+                    class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm outline-none transition"
+                    placeholder="Contoh: {Jual|Pusat|Toko} {keyword} Terbaik di {lokasi}"
                     required>
+                <p class="text-xs text-slate-500 mt-1 mb-4">Judul mendukung short key: <code class="bg-slate-100 px-1 rounded">{keyword}</code>, <code class="bg-slate-100 px-1 rounded">{lokasi}</code>, <code class="bg-slate-100 px-1 rounded">{a|b|c}</code>, dan shortkey master. Judul hasilnya bisa dipanggil di isi artikel dengan <code class="bg-slate-100 px-1 rounded">{titles}</code>.</p>
                 <label for="keywords" class="block font-semibold text-slate-700 mb-2">
                     Daftar Kata Kunci (1 Kata Kunci Per Baris)
                 </label>
@@ -71,7 +76,7 @@ if ($tags !== false) {
                     class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm outline-none transition" 
                     placeholder="Kacang goreng&#10;Resep nasi goreng&#10;Jasa renovasi rumah"
                     required></textarea>
-                <p class="text-xs text-slate-500 mt-2">Sistem akan mengeksekusi setiap baris secara bergantian (satu per satu).</p>
+                <p class="text-xs text-slate-500 mt-2">Setiap kata kunci dikombinasikan dengan setiap kelurahan pada Target Wilayah. Contoh: 2 kata kunci × 3 kelurahan = 6 artikel, masing-masing disimpan terpisah.</p>
             </div>
 
             <!-- Card 2: Pengaturan Target Lokasi & AI -->
@@ -110,8 +115,15 @@ if ($tags !== false) {
                         <?php endif; ?>
                     </select>
                     <p class="text-xs text-slate-500 mt-1">
-                        Daftar wilayah dikelola di <a href="settings.php?tab=wilayah" class="text-blue-600 underline">Pengaturan &gt; Wilayah</a>. Pilih kota untuk menyasar semua kelurahan di dalamnya, atau pilih spesifik kelurahan.
+                        Daftar wilayah dikelola di <a href="settings.php?tab=wilayah" class="text-blue-600 underline">Pengaturan &gt; Wilayah</a>. Memilih kecamatan/kota/provinsi = satu artikel untuk <strong>setiap kelurahan</strong> di dalamnya; pilih spesifik kelurahan untuk satu wilayah saja.
                     </p>
+                </div>
+
+                <!-- Batas jumlah artikel -->
+                <div class="col-span-1 md:col-span-2">
+                    <label for="max_articles" class="block font-semibold text-slate-700 mb-2">Batas Jumlah Artikel per Proses</label>
+                    <input type="number" id="max_articles" min="1" value="50" class="w-full md:w-40 p-3 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-slate-500 mt-1">Pengaman agar memilih satu kota tidak langsung membuat ratusan artikel. Jika kombinasi melebihi batas ini, hanya sebanyak batas yang diproses.</p>
                 </div>
 
                 <!-- Engine Model AI -->
@@ -167,7 +179,9 @@ if ($tags !== false) {
                         <code class="bg-slate-100 px-1 rounded">{lokasi}</code> satu nama wilayah,
                         <code class="bg-slate-100 px-1 rounded">{3 lokasi}</code> hingga 3 wilayah berbeda (jika wilayah kurang, tampil semuanya),
                         <code class="bg-slate-100 px-1 rounded">{kata1|kata2|kata3}</code> pilih salah satu secara acak (boleh kosong, mis. <code class="bg-slate-100 px-1 rounded">{jual|dijual|}</code>),
-                        <code class="bg-slate-100 px-1 rounded">{template:nama}</code> sisipkan template master.
+                        <code class="bg-slate-100 px-1 rounded">{template:nama}</code> sisipkan template master,
+                        <code class="bg-slate-100 px-1 rounded">{paragraf}</code> satu paragraf AI bebas,
+                        <code class="bg-slate-100 px-1 rounded">{paragraf: jelaskan apa itu {keyword}}</code> paragraf AI sesuai instruksi (berbekal Wikipedia untuk kata kunci dan wilayah).
                         <?php if ($master_shortkeys): ?>
                             <br>Shortkey master:
                             <?php foreach ($master_shortkeys as $k): ?>
@@ -183,7 +197,7 @@ if ($tags !== false) {
                     <button type="button" id="btnPreview" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium py-2 px-4 rounded-lg transition">
                         Generate Ulang (Acak)
                     </button>
-                    <span class="text-xs text-slate-500">Preview saja, belum disimpan. Mengetik hanya menampilkan template; klik Proses & Generate untuk mengisi {paragraf} dengan AI.</span>
+                    <span class="text-xs text-slate-500">Mengetik hanya menampilkan template. Klik Proses & Generate untuk mengisi {paragraf} dengan AI; hasilnya otomatis tersimpan ke <a href="articles.php" class="text-blue-600 underline">Daftar Artikel</a>.</span>
                 </div>
 
                 <div>
@@ -262,7 +276,7 @@ if ($tags !== false) {
 
         // Ganti {a|b|c} dengan salah satu pilihan acak (pilihan kosong diperbolehkan)
         function spin(text) {
-            const re = /\{([^{}]*\|[^{}]*)\}/;
+            const re = /\{(?!paragraf:)([^{}]*\|[^{}]*)\}/i;
             let guard = 0;
             while (re.test(text) && guard++ < 1000) {
                 text = text.replace(re, (_, g) => pick(g.split('|')).trim());
@@ -306,79 +320,166 @@ if ($tags !== false) {
             const template = $('template_p1').value;
             if (!template.trim()) { $('preview_p1').value = ''; return; }
 
-            const title = getTitle();
             const list = getKeywords();
 
             $('preview_p1').value = (list.length ? list : [''])
-                .map((kw) => (kw ? '[' + kw + ']\n' : '') + render(template, { title, keyword: kw, lokasi: randomLocation() }))
+                .map((kw) => { const lokasi = randomLocation(); const title = renderTitle(kw, lokasi); return (kw ? '[' + kw + ']\n' : '') + (title ? 'Judul: ' + title + '\n' : '') + render(template, { title, keyword: kw, lokasi }); })
                 .join('\n\n');
         }
 
-        // Minta Ollama menulis satu paragraf untuk posisi {paragraf}
+        // Minta Ollama menulis satu paragraf untuk posisi {paragraf} / {paragraf:instruksi}
         async function aiParagraph(params) {
             const res = await fetch('generate.php', { method: 'POST', body: new URLSearchParams(params) });
             const data = await res.json();
             if (!res.ok || data.error) throw new Error(data.error || 'HTTP ' + res.status);
-            return data.paragraph;
+            return data;
         }
 
-        // Submit: template dirender, setiap {paragraf} diisi Ollama. Hanya ditampilkan di preview.
+        async function saveArticle(fields) {
+            const res = await fetch('save_article.php', { method: 'POST', body: new URLSearchParams(fields) });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'HTTP ' + res.status);
+            return data.id;
+        }
+
+        const LEAVES = <?= json_encode(array_map(fn($w) => [$w['provinsi'], $w['kota_kab'], $w['kecamatan'], $w['kelurahan']], $wilayah_rows), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+
+        // Daftar kelurahan (satuan artikel) pada cakupan wilayah yang dipilih. "Tanpa target" = satu satuan kosong.
+        function scopeUnits() {
+            const [type, rest = ''] = $('target_wilayah').value.split(/:(.+)/);
+            const p = rest.split('|');
+            const test = {
+                PROV: (l) => l[0] === p[0],
+                KOTA: (l) => l[1] === p[0],
+                KEC:  (l) => l[2] === p[0] && l[1] === p[1],
+                KEL:  (l) => l[3] === p[0] && l[2] === p[1] && l[1] === p[2],
+            }[type];
+            const units = test ? LEAVES.filter(test).map((l) => ({ name: l[3], kec: l[2], kota: l[1] })) : [];
+            return units.length ? units : [{ name: '', kec: '', kota: '' }];
+        }
+
+        const PARA_RE = /\{paragraf(?::([^{}]*))?\}/gi;
+
+        // Judul juga mendukung short key ({keyword}, {lokasi}, {a|b}, shortkey master). {titles} tidak berlaku di judul.
+        const renderTitle = (kw, lokasi) => render(getTitle(), { title: '', keyword: kw, lokasi });
+
+        // Submit: setiap kombinasi kata kunci x wilayah = satu artikel. Tiap {paragraf} diisi Ollama (berbekal sumber web), lalu disimpan.
         async function generateFull(e) {
             e.preventDefault();
             const template = $('template_p1').value;
-            if (!/\{paragraf\}/i.test(template)) {
-                alert('Template belum memiliki {paragraf}. Tambahkan {paragraf} di posisi yang ingin ditulis AI.');
+            if (!/\{paragraf(:[^{}]*)?\}/i.test(template)) {
+                alert('Template belum memiliki {paragraf}. Tambahkan {paragraf} atau {paragraf: instruksi} di posisi yang ingin ditulis AI.');
                 $('template_p1').focus();
                 return;
             }
+            if (!$('model').value) {
+                alert('Model Ollama belum tersedia. Pastikan Ollama berjalan dan sudah ada model (ollama pull qwen2.5:3b).');
+                return;
+            }
+
+            const keywords = getKeywords();
+            const units = scopeUnits();
+            let jobs = [];
+            keywords.forEach((kw) => units.forEach((u) => jobs.push({ kw, u })));
+
+            const max = Math.max(1, parseInt($('max_articles').value, 10) || 50);
+            const all = jobs.length;
+            let msg = 'Akan membuat ' + Math.min(all, max) + ' artikel (' + keywords.length + ' kata kunci × ' + units.length + ' wilayah).';
+            if (all > max) { msg += '\n\nTotal kombinasi ' + all + ' melebihi batas ' + max + ', hanya ' + max + ' pertama yang diproses.'; jobs = jobs.slice(0, max); }
+            if (jobs.length > 1 && !confirm(msg + '\n\nLanjutkan?')) return;
 
             const btn = $('btnSubmit');
             const label = btn.lastChild.textContent;
             const preview = $('preview_p1');
-            const title = getTitle();
-            const keywords = getKeywords();
             const blocks = [];
             btn.disabled = true;
             preview.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            for (let i = 0; i < keywords.length; i++) {
-                const kw = keywords[i];
-                const lokasi = randomLocation();
-                // Bagian statis di antara penanda {paragraf}
-                const parts = render(template, { title, keyword: kw, lokasi }).split(/\{paragraf\}/i);
-                const total = parts.length - 1;
+            for (let i = 0; i < jobs.length; i++) {
+                const kw = jobs[i].kw;
+                const lokasi = jobs[i].u.name;
+                const kota = jobs[i].u.kota;
+                const title = renderTitle(kw, lokasi);
+                const head = '[' + kw + (lokasi ? ' — ' + lokasi : '') + ']' + (title ? '\nJudul: ' + title : '') + '\n';
+                // split dengan grup tangkap: [teks0, instruksi1, teks1, instruksi2, teks2, ...]
+                const parts = render(template, { title, keyword: kw, lokasi }).split(PARA_RE);
+                const total = (parts.length - 1) / 2;
                 let text = parts[0];
+                let failed = 0;
+                const sources = {};
                 const show = (tail) => {
-                    preview.value = blocks.concat('[' + kw + ']\n' + text + (tail || '')).join('\n\n');
+                    preview.value = blocks.concat(head + text + (tail || '')).join('\n\n');
                 };
 
+                // Langkah 1: rancang kerangka agar semua paragraf AI saling terhubung dan tidak berulang
+                let outline = null;
+                const slots = Array.from({ length: total }, (_, k) => (parts[2 * (k + 1) - 1] || '').trim());
+                const skeleton = parts.map((p, idx) => (idx % 2 ? '(BAGIAN ' + ((idx + 1) / 2) + ')' : p)).join('').trim();
+                btn.lastChild.textContent = ' Artikel ' + (i + 1) + '/' + jobs.length + ' (' + kw + (lokasi ? ', ' + lokasi : '') + ') - menyusun kerangka...';
+                show('(menyusun kerangka artikel...)');
+                try {
+                    outline = await aiParagraph({
+                        action: 'outline', keyword: kw, title, lokasi, kota, skeleton,
+                        slots: JSON.stringify(slots),
+                        model: $('model').value, mode: $('mode').value,
+                    });
+                    (outline.sources || []).forEach((s) => { sources[s.url] = s; });
+                } catch (err) {
+                    outline = null;   // lanjut tanpa kerangka
+                }
+                const outlineLine = outline ? 'Tema: ' + outline.tema + '\nKerangka: ' + outline.pokok.map((p, k) => (k + 1) + ') ' + p).join(' | ') + '\n' : '';
+                const headFull = head + outlineLine;
+                const show2 = (tail) => { preview.value = blocks.concat(headFull + text + (tail || '')).join('\n\n'); };
+
                 for (let n = 1; n <= total; n++) {
-                    btn.lastChild.textContent = ' ' + (i + 1) + '/' + keywords.length + ' ' + kw + ' - paragraf AI ' + n + '/' + total + '...';
-                    show('(menulis paragraf AI ' + n + '/' + total + '...)');
+                    btn.lastChild.textContent = ' Artikel ' + (i + 1) + '/' + jobs.length + ' (' + kw + (lokasi ? ', ' + lokasi : '') + ') - paragraf AI ' + n + '/' + total + '...';
+                    show2('(menulis paragraf AI ' + n + '/' + total + '...)');
 
                     let para;
                     try {
-                        para = await aiParagraph({
-                            keyword: kw, title, lokasi,
+                        const data = await aiParagraph({
+                            keyword: kw, title, lokasi, kota,
+                            instruction: (parts[2 * n - 1] || '').trim(),
+                            outline: outline ? JSON.stringify({ tema: outline.tema, pokok: outline.pokok }) : '',
+                            index: n, total,
                             before: text.trim(),
-                            after: parts.slice(n).join('[paragraf AI]').trim(),
+                            after: parts.slice(2 * n).map((p, idx) => (idx % 2 ? '(bagian lain)' : p)).join('').trim(),
                             model: $('model').value,
                             mode: $('mode').value,
                         });
+                        para = data.paragraph;
+                        (data.sources || []).forEach((s) => { sources[s.url] = s; });
                     } catch (err) {
+                        failed++;
                         para = '(gagal: ' + err.message + ')';
                     }
-                    text += para + parts[n];
+                    text += para + parts[2 * n];
                 }
 
-                show();
-                blocks.push('[' + kw + ']\n' + text);
+                // Simpan ke database
+                let saved = '';
+                try {
+                    const id = await saveArticle({
+                        title, keyword: kw, lokasi,
+                        wilayah_target: $('target_wilayah').value,
+                        model: $('model').value, mode: $('mode').value,
+                        template, content: text,
+                        sources: JSON.stringify(Object.values(sources)),
+                        status: failed ? 'partial' : 'ok',
+                    });
+                    saved = '\n\n✔ Tersimpan sebagai artikel #' + id;
+                } catch (err) {
+                    saved = '\n\n✘ Gagal menyimpan: ' + err.message;
+                }
+
+                text += saved;
+                show2();
+                blocks.push(headFull + text);
             }
 
             btn.lastChild.textContent = label;
             btn.disabled = false;
         }
-
         // Muat template master ke kolom template (tetap bisa diedit di sini)
         $('tpl_select').addEventListener('change', (e) => {
             if (e.target.value === '') return;
