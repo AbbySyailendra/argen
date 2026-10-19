@@ -69,6 +69,7 @@
       <li><a href="#model">Unduh model AI</a></li>
       <li><a href="#jalan">Jalankan aplikasi</a></li>
       <li><a href="#pakai">Cara pakai singkat</a></li>
+      <li><a href="#wordpress">Publikasi ke WordPress</a></li>
       <li><a href="#masalah">Pemecahan masalah</a></li>
     </ol>
   </nav>
@@ -198,6 +199,25 @@
 
 {paragraf}</code></pre><button class="copy">Salin</button></div>
     <div class="note">Setiap <code>{paragraf}</code> adalah satu panggilan ke Ollama. Semakin banyak kata kunci dan <code>{paragraf}</code>, semakin lama prosesnya.</div>
+  </section>
+
+  <section id="wordpress">
+    <h2>Publikasi ke WordPress</h2>
+    <p>Artikel dikirim lewat REST API bawaan WordPress memakai <strong>Application Password</strong>. Cocok untuk shared hosting: tidak perlu plugin dan tidak perlu FTP.</p>
+    <ol class="steps">
+      <li>Di WordPress: <strong>Pengguna &gt; Profil Anda &gt; Application Passwords</strong>, isi nama (mis. <em>Argen</em>), klik <strong>Add New Application Password</strong>, salin passwordnya.</li>
+      <li>Di Argen: <strong>⚙ Pengaturan &gt; WordPress</strong>. Isi alamat situs (<code>https://situsanda.com</code>), username, Application Password, status bawaan, kategori, dan zona waktu. Klik <strong>Simpan</strong> lalu <strong>Uji koneksi</strong>.</li>
+      <li>Di halaman utama, isi bagian <strong>Publikasi WordPress</strong>: tanggal publish artikel pertama, jarak antar artikel, dan status. Centang <em>Kirim otomatis</em> bila mau langsung terkirim, atau kirim nanti dari <strong>📄 Artikel</strong>.</li>
+    </ol>
+    <table>
+      <tr><th>Status + tanggal</th><th>Hasil di WordPress</th></tr>
+      <tr><td>Terbit + tanggal <strong>masa depan</strong></td><td>Terjadwal (<em>future</em>), terbit otomatis pada waktunya</td></tr>
+      <tr><td>Terbit + tanggal <strong>lampau</strong></td><td>Langsung terbit dengan tanggal mundur (<em>backdate</em>)</td></tr>
+      <tr><td>Terbit tanpa tanggal</td><td>Terbit saat dikirim</td></tr>
+      <tr><td>Draft / Review / Privat + tanggal</td><td>Tersimpan dengan tanggal itu, tidak diterbitkan</td></tr>
+    </table>
+    <div class="note">Jika koneksi ditolak (401) padahal password benar, hosting membuang header Authorization. Tambahkan di <code>.htaccess</code> WordPress, di bawah <code>RewriteEngine On</code>: <code>RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]</code>. Jika 403, plugin keamanan atau firewall hosting kemungkinan memblokir REST API.</div>
+    <div class="note">Artikel terjadwal diterbitkan oleh WP-Cron, yang berjalan saat situs dikunjungi. Di situs sepi, terbitnya bisa terlambat; pasang cron job asli di hosting yang memanggil <code>wp-cron.php</code> bila perlu ketepatan waktu. Situs harus memakai HTTPS agar Application Password aktif.</div>
   </section>
 
   <section id="masalah">

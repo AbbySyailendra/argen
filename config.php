@@ -73,7 +73,38 @@ function db(): mysqli {
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX (keyword), INDEX (created_at)
     ) CHARACTER SET utf8mb4");
+
+    // Kolom publikasi WordPress (ditambahkan bila belum ada, agar database lama otomatis ter-upgrade)
+    if ($m->query("SHOW COLUMNS FROM articles LIKE 'wp_post_id'")->num_rows === 0) {
+        $m->query("ALTER TABLE articles
+            ADD COLUMN publish_at DATETIME NULL,
+            ADD COLUMN wp_target_status VARCHAR(20) NOT NULL DEFAULT '',
+            ADD COLUMN wp_post_id INT NULL,
+            ADD COLUMN wp_url VARCHAR(500) NULL,
+            ADD COLUMN wp_state VARCHAR(20) NULL,
+            ADD COLUMN wp_error TEXT NULL,
+            ADD COLUMN wp_sent_at DATETIME NULL");
+    }
+
+    $m->query("CREATE TABLE IF NOT EXISTS master_settings (
+        `key` VARCHAR(60) PRIMARY KEY,
+        `value` TEXT NOT NULL
+    ) CHARACTER SET utf8mb4");
     return $m;
+}
+
+function setting_get(string $key, string $default = ''): string {
+    $st = db()->prepare('SELECT `value` FROM master_settings WHERE `key` = ?');
+    $st->bind_param('s', $key);
+    $st->execute();
+    $r = $st->get_result()->fetch_assoc();
+    return $r ? $r['value'] : $default;
+}
+
+function setting_set(string $key, string $value): void {
+    $st = db()->prepare('INSERT INTO master_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)');
+    $st->bind_param('ss', $key, $value);
+    $st->execute();
 }
 
 // Nama yang dipakai sistem dan tidak boleh dijadikan shortkey

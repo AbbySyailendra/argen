@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 $db = db();
 
 $tab = $_GET['tab'] ?? 'templates';
-if (!in_array($tab, ['templates', 'shortkeys', 'wilayah', 'sources'], true)) $tab = 'templates';
+if (!in_array($tab, ['templates', 'shortkeys', 'wilayah', 'sources', 'wordpress'], true)) $tab = 'templates';
 
 $flash = $_GET['msg'] ?? '';
 $error = '';
@@ -59,6 +59,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'delete') {
             $db->query('DELETE FROM master_shortkeys WHERE id=' . $id);
             $ok = 'Shortkey dihapus.';
+        }
+    }
+
+    if ($tab === 'wordpress' && $action === 'save_wp') {
+        require_once __DIR__ . '/wp.php';
+        $url = rtrim(trim($_POST['wp_url'] ?? ''), '/');
+        $url = preg_replace('#/wp-json.*$#i', '', $url);
+        if ($url !== '' && !preg_match('#^https?://#i', $url)) $url = 'https://' . $url;
+        if ($url === '') {
+            $error = 'Alamat situs WordPress wajib diisi.';
+        } elseif (!in_array($_POST['wp_timezone'] ?? '', DateTimeZone::listIdentifiers(), true)) {
+            $error = 'Zona waktu tidak valid.';
+        } else {
+            setting_set('wp_url', $url);
+            setting_set('wp_user', trim($_POST['wp_user'] ?? ''));
+            if (trim($_POST['wp_pass'] ?? '') !== '') setting_set('wp_pass', trim($_POST['wp_pass']));   // kosong = pertahankan yang lama
+            setting_set('wp_status', array_key_exists($_POST['wp_status'] ?? '', WP_STATUSES) ? $_POST['wp_status'] : 'publish');
+            setting_set('wp_category', trim($_POST['wp_category'] ?? ''));
+            setting_set('wp_timezone', $_POST['wp_timezone']);
+            setting_set('wp_tags', isset($_POST['wp_tags']) ? '1' : '0');
+            setting_set('wp_append_sources', isset($_POST['wp_append_sources']) ? '1' : '0');
+            $ok = 'Pengaturan WordPress disimpan.';
         }
     }
 
@@ -160,6 +182,24 @@ if ($tab === 'sources' && isset($_GET['test'])) {
     }
 }
 
+// Uji koneksi WordPress
+$wpTest = null;
+if ($tab === 'wordpress') {
+    require_once __DIR__ . '/wp.php';
+    $wp = wp_cfg();
+    if (isset($_GET['test']) && $wp['url'] !== '') {
+        set_time_limit(60);
+        [$code, $json, $err, $raw] = wp_http($wp, 'GET', 'wp/v2/users/me?context=edit');
+        if ($code === 200 && isset($json['id'])) {
+            $caps = $json['capabilities'] ?? [];
+            $wpTest = ['ok' => true, 'name' => $json['name'] ?? $json['slug'] ?? '?', 'roles' => implode(', ', $json['roles'] ?? []),
+                       'publish' => !empty($caps['publish_posts']), 'cats' => !empty($caps['manage_categories'])];
+        } else {
+            $wpTest = ['ok' => false, 'msg' => wp_explain($code, $json, $err, $raw)];
+        }
+    }
+}
+
 $tpls = rows('SELECT * FROM master_templates ORDER BY name');
 $keys = rows('SELECT * FROM master_shortkeys ORDER BY name');
 $q = trim($_GET['q'] ?? '');
@@ -200,6 +240,7 @@ $tabCls = fn($t) => 'px-4 py-2 rounded-lg text-sm font-medium ' . ($tab === $t ?
         <a href="?tab=shortkeys" class="<?= $tabCls('shortkeys') ?>">Shortkey (<?= count($keys) ?>)</a>
         <a href="?tab=wilayah" class="<?= $tabCls('wilayah') ?>">Wilayah (<?= $wilTotal ?>)</a>
         <a href="?tab=sources" class="<?= $tabCls('sources') ?>">Sumber Web (<?= count($srcs) ?>)</a>
+        <a href="?tab=wordpress" class="<?= $tabCls('wordpress') ?>">WordPress</a>
     </div>
 
     <?php if ($flash): ?><div class="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm"><?= h($flash) ?></div><?php endif; ?>
@@ -265,6 +306,82 @@ $tabCls = fn($t) => 'px-4 py-2 rounded-lg text-sm font-medium ' . ($tab === $t ?
             </div>
         <?php endforeach; ?>
         <?php if (!$keys): ?><div class="p-6 text-sm text-slate-500">Belum ada shortkey.</div><?php endif; ?>
+    </div>
+
+<?php elseif ($tab === 'wordpress'):
+    $v = fn($k, $d = '') => h($_POST[$k] ?? setting_get($k, $d));
+?>
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+        <h2 class="font-semibold mb-1">Koneksi WordPress</h2>
+        <p class="text-xs text-slate-500 mb-4">Artikel dikirim lewat REST API bawaan WordPress memakai <strong>Application Password</strong>. Cocok untuk shared hosting; tidak perlu plugin atau akses FTP.</p>
+        <form method="POST" class="space-y-3">
+            <input type="hidden" name="action" value="save_wp">
+            <label class="block text-xs text-slate-600">Alamat situs
+                <input name="wp_url" value="<?= $v('wp_url') ?>" class="<?= $input ?> mt-1" placeholder="https://situsanda.com" required>
+            </label>
+            <div class="grid md:grid-cols-2 gap-3">
+                <label class="block text-xs text-slate-600">Username WordPress
+                    <input name="wp_user" value="<?= $v('wp_user') ?>" class="<?= $input ?> mt-1" autocomplete="off" required>
+                </label>
+                <label class="block text-xs text-slate-600">Application Password <?= setting_get('wp_pass') !== '' ? '(tersimpan; isi hanya bila ingin mengganti)' : '' ?>
+                    <input type="password" name="wp_pass" class="<?= $input ?> mt-1" autocomplete="new-password" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
+                </label>
+            </div>
+            <div class="grid md:grid-cols-3 gap-3">
+                <label class="block text-xs text-slate-600">Status posting bawaan
+                    <select name="wp_status" class="<?= $input ?> bg-white mt-1">
+                        <?php $cur = $_POST['wp_status'] ?? setting_get('wp_status', 'publish'); foreach (WP_STATUSES as $k => $l): ?>
+                            <option value="<?= $k ?>" <?= $cur === $k ? 'selected' : '' ?>><?= $l ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="block text-xs text-slate-600">Kategori (nama; dibuat otomatis bila belum ada)
+                    <input name="wp_category" value="<?= $v('wp_category') ?>" class="<?= $input ?> mt-1" placeholder="mis. Artikel">
+                </label>
+                <label class="block text-xs text-slate-600">Zona waktu tanggal publish
+                    <select name="wp_timezone" class="<?= $input ?> bg-white mt-1">
+                        <?php $tzCur = $_POST['wp_timezone'] ?? setting_get('wp_timezone', 'Asia/Jakarta');
+                        foreach (['Asia/Jakarta' => 'WIB (Asia/Jakarta)', 'Asia/Makassar' => 'WITA (Asia/Makassar)', 'Asia/Jayapura' => 'WIT (Asia/Jayapura)', 'UTC' => 'UTC'] as $k => $l): ?>
+                            <option value="<?= $k ?>" <?= $tzCur === $k ? 'selected' : '' ?>><?= $l ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </div>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="wp_tags" <?= setting_get('wp_tags', '1') === '1' ? 'checked' : '' ?>> Pasang kata kunci dan wilayah sebagai tag</label>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="wp_append_sources" <?= setting_get('wp_append_sources', '0') === '1' ? 'checked' : '' ?>> Tambahkan daftar sumber referensi di akhir artikel</label>
+            <div class="flex gap-3 items-center">
+                <button class="<?= $btn ?>">Simpan</button>
+                <?php if (setting_get('wp_url') !== ''): ?><a href="?tab=wordpress&test=1" class="text-sm text-blue-600 underline">Uji koneksi</a><?php endif; ?>
+            </div>
+        </form>
+    </div>
+
+    <?php if ($wpTest): ?>
+        <?php if ($wpTest['ok']): ?>
+            <div class="mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-green-900 text-sm">
+                <strong>Terhubung</strong> sebagai <?= h($wpTest['name']) ?> (<?= h($wpTest['roles']) ?>).
+                <?= $wpTest['publish'] ? 'Akun boleh menerbitkan post.' : '<strong class="text-red-700">Akun TIDAK boleh menerbitkan post</strong>; hasilnya hanya bisa draft/pending.' ?>
+                <?= $wpTest['cats'] ? '' : '<br>Akun tidak bisa membuat kategori baru; pastikan kategori yang dipakai sudah ada.' ?>
+            </div>
+        <?php else: ?>
+            <div class="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-900 text-sm"><strong>Gagal terhubung.</strong> <?= h($wpTest['msg']) ?></div>
+        <?php endif; ?>
+    <?php endif; ?>
+
+    <div class="bg-white p-5 rounded-xl border border-slate-200 text-sm text-slate-600 space-y-3">
+        <div class="font-semibold text-slate-800">Cara membuat Application Password</div>
+        <ol class="list-decimal pl-5 space-y-1">
+            <li>Login ke WordPress, buka <strong>Pengguna &gt; Profil Anda</strong>.</li>
+            <li>Gulir ke <strong>Application Passwords</strong>, isi nama (mis. <em>Argen</em>), klik <strong>Add New Application Password</strong>.</li>
+            <li>Salin password yang muncul (spasi boleh ikut) lalu tempel di atas. Password ini bukan password login Anda dan bisa dicabut kapan saja.</li>
+        </ol>
+        <div class="font-semibold text-slate-800 pt-2">Aturan tanggal publish</div>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Status <strong>Terbit</strong> + tanggal <strong>masa depan</strong> → artikel <strong>terjadwal</strong> (status <em>future</em>) dan terbit otomatis pada waktunya.</li>
+            <li>Status <strong>Terbit</strong> + tanggal <strong>lampau</strong> → langsung terbit dengan tanggal mundur (<em>backdate</em>).</li>
+            <li>Tanpa tanggal → terbit sekarang. Status Draft/Review/Privat menyimpan tanggal itu tanpa menerbitkan.</li>
+        </ul>
+        <div class="text-xs text-slate-500">Catatan: artikel terjadwal diterbitkan oleh WP-Cron, yang berjalan saat situs ada pengunjung. Di situs sepi, terbitnya bisa terlambat beberapa menit; solusinya pasang cron job asli di hosting (memanggil <code class="bg-slate-100 px-1 rounded">wp-cron.php</code>). Aplikasi ini harus bisa mengakses internet; situs WordPress wajib HTTPS agar Application Password aktif.</div>
     </div>
 
 <?php elseif ($tab === 'sources'):

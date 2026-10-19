@@ -19,11 +19,16 @@ if ($content === '' || $keyword === '') {
 }
 $status = $f('status') === 'partial' ? 'partial' : 'ok';
 
-$st = db()->prepare('INSERT INTO articles (title, keyword, lokasi, wilayah_target, model, mode, template, content, sources, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+// Tanggal publish (waktu setempat, "Y-m-d H:i:s"); kosong = terbit saat dikirim
+$publishAt = $f('publish_at');
+$publishAt = preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/', $publishAt) ? str_replace('T', ' ', $publishAt) : null;
+$wpStatus = array_key_exists($f('wp_target_status'), ['publish' => 1, 'draft' => 1, 'pending' => 1, 'private' => 1]) ? $f('wp_target_status') : '';
+
+$st = db()->prepare('INSERT INTO articles (title, keyword, lokasi, wilayah_target, model, mode, template, content, sources, status, publish_at, wp_target_status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $title = $f('title'); $lokasi = $f('lokasi'); $target = $f('wilayah_target');
 $model = $f('model'); $mode = $f('mode'); $template = $f('template'); $sources = $f('sources');
-$st->bind_param('ssssssssss', $title, $keyword, $lokasi, $target, $model, $mode, $template, $content, $sources, $status);
+$st->bind_param('ssssssssssss', $title, $keyword, $lokasi, $target, $model, $mode, $template, $content, $sources, $status, $publishAt, $wpStatus);
 
 if (!$st->execute()) {
     http_response_code(500);

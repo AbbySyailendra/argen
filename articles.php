@@ -1,6 +1,29 @@
 <?php
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/wp.php';
 $db = db();
+
+// Simpan tanggal publish & status WordPress sebuah artikel
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'schedule') {
+    $id = (int) ($_POST['id'] ?? 0);
+    $pa = trim($_POST['publish_at'] ?? '');
+    $pa = preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', $pa) ? str_replace('T', ' ', substr($pa, 0, 16)) . ':00' : null;
+    $ws = array_key_exists($_POST['wp_target_status'] ?? '', WP_STATUSES) ? $_POST['wp_target_status'] : '';
+    $st = $db->prepare('UPDATE articles SET publish_at = ?, wp_target_status = ? WHERE id = ?');
+    $st->bind_param('ssi', $pa, $ws, $id);
+    $st->execute();
+    header('Location: articles.php?id=' . $id . '&msg=' . urlencode('Jadwal & status disimpan.'));
+    exit;
+}
+
+// Label status WordPress sebuah artikel
+function wp_badge(array $a): string {
+    $map = ['publish' => ['Terbit', 'bg-green-100 text-green-800'], 'future' => ['Terjadwal', 'bg-blue-100 text-blue-800'],
+            'draft' => ['Draft', 'bg-slate-200 text-slate-700'], 'pending' => ['Review', 'bg-amber-100 text-amber-800'], 'private' => ['Privat', 'bg-slate-200 text-slate-700']];
+    if (!empty($a['wp_error'])) return '<span class="text-xs bg-red-100 text-red-800 px-1.5 rounded" title="' . h($a['wp_error']) . '">WP gagal</span>';
+    if (empty($a['wp_post_id'])) return '<span class="text-xs bg-slate-100 text-slate-500 px-1.5 rounded">belum dikirim</span>';
+    [$l, $c] = $map[$a['wp_state']] ?? [$a['wp_state'], 'bg-slate-100'];
+    return '<span class="text-xs ' . $c . ' px-1.5 rounded">WP: ' . h($l) . '</span>';
+}
 
 // Hapus
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
@@ -27,7 +50,8 @@ if ($q !== '') {
 $total = (int) rows("SELECT COUNT(*) c FROM articles $where")[0]['c'];
 $pages = max(1, (int) ceil($total / $per));
 $page = min($page, $pages);
-$list = rows("SELECT id, title, keyword, lokasi, model, status, created_at, CHAR_LENGTH(content) len
+$unsent = (int) rows("SELECT COUNT(*) c FROM articles WHERE wp_post_id IS NULL")[0]['c'];
+$list = rows("SELECT id, title, keyword, lokasi, model, status, created_at, CHAR_LENGTH(content) len, publish_at, wp_post_id, wp_state, wp_error, wp_url
               FROM articles $where ORDER BY id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
 
 $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg';
@@ -88,6 +112,29 @@ $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 r
                 </div>
             <?php endif; ?>
 
+            <div class="mt-6 pt-4 border-t border-slate-100">
+                <div class="font-semibold text-sm mb-2">WordPress <?= wp_badge($article) ?></div>
+                <form method="POST" class="flex flex-wrap gap-3 items-end">
+                    <input type="hidden" name="action" value="schedule"><input type="hidden" name="id" value="<?= $article['id'] ?>">
+                    <label class="text-xs text-slate-600">Tanggal publish
+                        <input type="datetime-local" name="publish_at" value="<?= $article['publish_at'] ? h(str_replace(' ', 'T', substr($article['publish_at'], 0, 16))) : '' ?>" class="block mt-1 p-2 border border-slate-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-xs text-slate-600">Status
+                        <select name="wp_target_status" class="block mt-1 p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                            <option value="">(bawaan: <?= h(WP_STATUSES[wp_cfg()['status']] ?? 'Terbit') ?>)</option>
+                            <?php foreach (WP_STATUSES as $k => $l): ?><option value="<?= $k ?>" <?= $article['wp_target_status'] === $k ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?>
+                        </select>
+                    </label>
+                    <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm py-2 px-3 rounded-lg">Simpan jadwal</button>
+                    <button type="button" class="wp-send <?= $btn ?>" data-id="<?= $article['id'] ?>"><?= $article['wp_post_id'] ? 'Perbarui di WordPress' : 'Kirim ke WordPress' ?></button>
+                </form>
+                <div id="wp-result" class="mt-2 text-xs">
+                    <?php if ($article['wp_error']): ?><span class="text-red-700"><?= h($article['wp_error']) ?></span><?php endif; ?>
+                    <?php if ($article['wp_url']): ?><a href="<?= h($article['wp_url']) ?>" target="_blank" rel="noopener" class="text-blue-600 underline"><?= h($article['wp_url']) ?></a><?php endif; ?>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Terbit + tanggal masa depan = terjadwal; tanggal lampau = tanggal mundur (backdate); kosong = terbit sekarang.</p>
+            </div>
+
             <div class="mt-6 flex gap-3 items-center">
                 <button id="copy" class="<?= $btn ?>">Salin teks</button>
                 <a href="articles.php" class="text-sm text-slate-600">← Kembali ke daftar</a>
@@ -112,6 +159,13 @@ $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 r
         <button class="<?= $btn ?>">Cari</button>
     </form>
 
+    <?php if ($unsent > 0): ?>
+        <div class="mb-3 flex items-center gap-3 text-sm">
+            <button id="wp-bulk" class="<?= $btn ?>">Kirim semua yang belum terkirim ke WordPress (<?= $unsent ?>)</button>
+            <span id="wp-bulk-status" class="text-xs text-slate-500"></span>
+        </div>
+    <?php endif; ?>
+
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
         <?php foreach ($list as $a): ?>
             <div class="p-4 flex justify-between gap-4 items-center">
@@ -121,8 +175,11 @@ $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 r
                     </div>
                     <div class="text-xs text-slate-500 mt-0.5">
                         #<?= $a['id'] ?> · <?= $a['lokasi'] !== '' ? '📍 ' . h($a['lokasi']) . ' · ' : '' ?><?= h($a['model']) ?> · <?= number_format($a['len']) ?> karakter · <?= h($a['created_at']) ?>
+                        <?= wp_badge($a) ?>
+                        <?= $a['publish_at'] ? '· 🗓 ' . h(substr($a['publish_at'], 0, 16)) : '' ?>
                     </div>
                 </a>
+                <button type="button" class="wp-send text-blue-600 text-sm shrink-0" data-id="<?= $a['id'] ?>" data-sent="<?= $a['wp_post_id'] ? 1 : 0 ?>"><?= $a['wp_post_id'] ? 'Perbarui WP' : 'Kirim WP' ?></button>
                 <form method="POST" onsubmit="return confirm('Hapus artikel ini?')" class="shrink-0">
                     <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $a['id'] ?>">
                     <button class="text-red-600 text-sm">Hapus</button>
@@ -142,5 +199,37 @@ $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 r
 <?php endif; ?>
 
 </div>
+<script>
+    // Kirim satu artikel ke WordPress; mengembalikan {ok, message, url, state}
+    async function sendWp(id) {
+        const res = await fetch('wp_publish.php', { method: 'POST', body: new URLSearchParams({ id }) });
+        try { return await res.json(); } catch (e) { return { ok: false, message: 'Respons server tidak valid (HTTP ' + res.status + ')' }; }
+    }
+    document.querySelectorAll('.wp-send').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const old = btn.textContent;
+            btn.disabled = true; btn.textContent = 'Mengirim...';
+            const r = await sendWp(btn.dataset.id);
+            btn.disabled = false;
+            if (r.ok) { alert('Berhasil (' + r.message + ').' + (r.url ? '\n' + r.url : '')); location.reload(); }
+            else { btn.textContent = old; alert('Gagal: ' + r.message); location.reload(); }
+        });
+    });
+    const bulk = document.getElementById('wp-bulk');
+    if (bulk) bulk.addEventListener('click', async function () {
+        const ids = Array.from(document.querySelectorAll('.wp-send[data-sent="0"]')).map(function (b) { return b.dataset.id; });
+        if (!ids.length) { alert('Tidak ada artikel belum terkirim pada halaman ini.'); return; }
+        if (!confirm('Kirim ' + ids.length + ' artikel ke WordPress sesuai jadwal masing-masing?')) return;
+        const st = document.getElementById('wp-bulk-status'); let ok = 0, fail = 0, lastErr = '';
+        bulk.disabled = true;
+        for (let i = 0; i < ids.length; i++) {
+            st.textContent = 'Mengirim ' + (i + 1) + '/' + ids.length + '...';
+            const r = await sendWp(ids[i]);
+            if (r.ok) ok++; else { fail++; lastErr = r.message; if (/Login ditolak|Tidak bisa terhubung|belum lengkap/.test(r.message)) break; }
+        }
+        alert('Selesai: ' + ok + ' berhasil, ' + fail + ' gagal.' + (lastErr ? '\n' + lastErr : ''));
+        location.reload();
+    });
+</script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/wp.php';
 
 // Data master dari halaman Pengaturan
 $master_templates = rows('SELECT name, content FROM master_templates ORDER BY name');
@@ -124,6 +124,32 @@ if ($tags !== false) {
                     <label for="max_articles" class="block font-semibold text-slate-700 mb-2">Batas Jumlah Artikel per Proses</label>
                     <input type="number" id="max_articles" min="1" value="50" class="w-full md:w-40 p-3 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
                     <p class="text-xs text-slate-500 mt-1">Pengaman agar memilih satu kota tidak langsung membuat ratusan artikel. Jika kombinasi melebihi batas ini, hanya sebanyak batas yang diproses.</p>
+                </div>
+
+                <!-- Publikasi WordPress -->
+                <div class="col-span-1 md:col-span-2 border-t border-slate-100 pt-4">
+                    <div class="font-semibold text-slate-700 mb-1">Publikasi WordPress <a href="settings.php?tab=wordpress" class="text-xs font-normal text-blue-600 underline ml-1">Pengaturan koneksi</a></div>
+                    <p class="text-xs text-slate-500 mb-3">Tanggal masa depan = <strong>terjadwal</strong>, tanggal lampau = <strong>tanggal mundur (backdate)</strong>, kosong = terbit saat dikirim. Dengan jarak antar artikel, tiap artikel mendapat tanggal berurutan.</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <label class="text-xs text-slate-600 col-span-2">Tanggal publish artikel pertama
+                            <input type="datetime-local" id="pub_start" class="w-full mt-1 p-2.5 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        </label>
+                        <label class="text-xs text-slate-600">Jarak antar artikel
+                            <input type="number" id="pub_gap" min="0" value="0" class="w-full mt-1 p-2.5 border border-slate-300 rounded-lg text-sm outline-none">
+                        </label>
+                        <label class="text-xs text-slate-600">Satuan
+                            <select id="pub_unit" class="w-full mt-1 p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none">
+                                <option value="1440">hari</option><option value="60">jam</option><option value="1">menit</option>
+                            </select>
+                        </label>
+                        <label class="text-xs text-slate-600 col-span-2">Status posting
+                            <select id="wp_status" class="w-full mt-1 p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none">
+                                <option value="">(bawaan dari Pengaturan: <?= h(WP_STATUSES[wp_cfg()['status']] ?? 'Terbit') ?>)</option>
+                                <?php foreach (WP_STATUSES as $k => $l): ?><option value="<?= $k ?>"><?= $l ?></option><?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm col-span-2 pt-5"><input type="checkbox" id="wp_auto"> Kirim otomatis ke WordPress setelah artikel dibuat</label>
+                    </div>
                 </div>
 
                 <!-- Engine Model AI -->
@@ -388,6 +414,16 @@ if ($tags !== false) {
             if (all > max) { msg += '\n\nTotal kombinasi ' + all + ' melebihi batas ' + max + ', hanya ' + max + ' pertama yang diproses.'; jobs = jobs.slice(0, max); }
             if (jobs.length > 1 && !confirm(msg + '\n\nLanjutkan?')) return;
 
+            // Tanggal publish artikel ke-i = awal + i x jarak (waktu setempat, format "YYYY-MM-DD HH:MM:00"); kosong bila tidak diisi
+            const pad = (n) => String(n).padStart(2, '0');
+            const publishAtFor = (idx) => {
+                const v = $('pub_start').value;
+                if (!v) return '';
+                const d = new Date(v);
+                d.setMinutes(d.getMinutes() + idx * (parseInt($('pub_gap').value, 10) || 0) * parseInt($('pub_unit').value, 10));
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':00';
+            };
+
             const btn = $('btnSubmit');
             const label = btn.lastChild.textContent;
             const preview = $('preview_p1');
@@ -461,13 +497,24 @@ if ($tags !== false) {
                 try {
                     const id = await saveArticle({
                         title, keyword: kw, lokasi,
+                        publish_at: publishAtFor(i), wp_target_status: $('wp_status').value,
                         wilayah_target: $('target_wilayah').value,
                         model: $('model').value, mode: $('mode').value,
                         template, content: text,
                         sources: JSON.stringify(Object.values(sources)),
                         status: failed ? 'partial' : 'ok',
                     });
-                    saved = '\n\n✔ Tersimpan sebagai artikel #' + id;
+                    saved = '\n\n✔ Tersimpan sebagai artikel #' + id + (publishAtFor(i) ? ' (publish: ' + publishAtFor(i) + ')' : '');
+                    if ($('wp_auto').checked) {
+                        btn.lastChild.textContent = ' Artikel ' + (i + 1) + '/' + jobs.length + ' - mengirim ke WordPress...';
+                        try {
+                            const res = await fetch('wp_publish.php', { method: 'POST', body: new URLSearchParams({ id }) });
+                            const r = await res.json();
+                            saved += r.ok ? '\n✔ WordPress: ' + r.message + (r.url ? ' → ' + r.url : '') : '\n✘ WordPress gagal: ' + r.message;
+                        } catch (err) {
+                            saved += '\n✘ WordPress gagal: ' + err.message;
+                        }
+                    }
                 } catch (err) {
                     saved = '\n\n✘ Gagal menyimpan: ' + err.message;
                 }
