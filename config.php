@@ -35,6 +35,9 @@ function db(): mysqli {
         name VARCHAR(100) NOT NULL UNIQUE,
         content MEDIUMTEXT NOT NULL
     ) CHARACTER SET utf8mb4");
+    if ($m->query("SHOW COLUMNS FROM master_templates LIKE 'title'")->num_rows === 0) {
+        $m->query("ALTER TABLE master_templates ADD COLUMN title VARCHAR(255) NOT NULL DEFAULT ''");   // template judul
+    }
     $m->query("CREATE TABLE IF NOT EXISTS master_shortkeys (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(50) NOT NULL UNIQUE,
@@ -108,7 +111,7 @@ function setting_set(string $key, string $value): void {
 }
 
 // Nama yang dipakai sistem dan tidak boleh dijadikan shortkey
-const RESERVED_KEYS = ['titles', 'title', 'keyword', 'lokasi', 'paragraf', 'template'];
+const RESERVED_KEYS = ['titles', 'title', 'keyword', 'lokasi', 'paragraf', 'judul', 'template'];
 
 function h($s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 

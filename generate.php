@@ -18,7 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     out(['error' => 'Method not allowed'], 405);
 }
 
-$action      = ($_POST['action'] ?? 'paragraph') === 'outline' ? 'outline' : 'paragraph';
+$action      = in_array($_POST['action'] ?? '', ['outline', 'title'], true) ? $_POST['action'] : 'paragraph';
+$title_before = trim($_POST['title_before'] ?? '');   // teks tetap di depan {judul}
+$title_after  = trim($_POST['title_after'] ?? '');    // teks tetap di belakang {judul}
 $keyword     = trim($_POST['keyword'] ?? '');
 $title       = trim($_POST['title'] ?? '');
 $lokasi      = trim($_POST['lokasi'] ?? '');
@@ -162,6 +164,67 @@ TXT;
     ]);
 }
 
+// =====================================================================
+// AKSI 1b: JUDUL ARTIKEL (ditulis setelah kerangka, agar selaras dengan isi)
+// =====================================================================
+if ($action === 'title') {
+    $system = <<<TXT
+Kamu adalah editor judul artikel blog berbahasa Indonesia. Judulmu menarik, jelas, dan selaras dengan isi artikel.
+Balas HANYA dengan teks judul (satu baris), tanpa tanda kutip, tanpa markdown, tanpa emoji, tanpa label seperti "Judul:", tanpa penjelasan.
+TXT;
+
+    $user = $header . "\n" . $refs;
+    if (is_array($outline) && !empty($outline['pokok'])) {
+        $user .= 'MAKSUD KESELURUHAN ARTIKEL: ' . ($outline['tema'] ?? '') . "\nKERANGKA ARTIKEL:\n";
+        foreach ($outline['pokok'] as $i => $pk) $user .= ($i + 1) . '. ' . $pk . "\n";
+        $user .= "\n";
+    }
+    $user .= "TUGAS: Tulis bagian judul yang mengisi posisi {judul}.\n";
+    if ($title_before !== '' || $title_after !== '') {
+        $user .= 'Bentuk judul lengkap: "' . $title_before . ' {judul} ' . $title_after . "\"\n"
+               . "Tulis HANYA isi {judul}-nya; teks di depan dan belakangnya sudah tetap, jangan diulang, dan hasil gabungannya harus mengalir sebagai satu judul yang wajar.\n";
+    }
+    if ($instruction !== '') $user .= "Arahan pengguna untuk judul: $instruction\n";
+    $user .= <<<TXT
+ATURAN
+- Bahasa Indonesia, panjang bagian yang kamu tulis sekitar 35 sampai 65 karakter (lebih pendek jika teks tetapnya sudah panjang).
+- Sebut kata kunci atau topik secara natural; sebut wilayah bila relevan.
+- DILARANG memakai kata klaim seperti "terbaik", "termurah", "terlengkap", "terpercaya", "nomor 1", serta angka, harga, promo, atau garansi karangan.
+- Jangan diakhiri tanda titik.
+TXT;
+
+    $clean = function (string $t) use ($title_before, $title_after): string {
+        if (preg_match('/[\x{3040}-\x{30FF}\x{3400}-\x{9FFF}\x{AC00}-\x{D7AF}\x{FF00}-\x{FFEF}]/u', $t, $m, PREG_OFFSET_CAPTURE)) $t = substr($t, 0, $m[0][1]);
+        $t = trim(preg_split('/\R/u', trim($t))[0] ?? '');
+        $t = preg_replace('/^\s*(judul( artikel)?|title)\s*[:\-–]\s*/iu', '', $t);
+        $t = preg_replace('/[*_#`>]+/u', '', $t);
+        $t = trim($t, " \t\"“”'‘’.");
+        if (mb_strlen($t) > 90) {                       // terlalu panjang: potong di batas kata
+            $t = mb_substr($t, 0, 90);
+            $t = rtrim(mb_substr($t, 0, (int) mb_strrpos($t, ' ') ?: 90), " ,;:-");
+        }
+        // Model sering mengulang teks tetap di sekitar {judul}: buang dari hasil
+        foreach (array_filter([$title_before]) as $b) $t = preg_replace('/^' . preg_quote($b, '/') . '\s*/iu', '', $t);
+        foreach (array_filter([$title_after]) as $af) $t = preg_replace('/\s*' . preg_quote($af, '/') . '$/iu', '', $t);
+        $t = trim($t, " \t:-–,");        return mb_strlen($t) >= 8 ? $t : '';
+    };
+
+    // Klaim superlatif karangan ("terbaik", "termurah", "nomor 1") ditolak; model diminta mencoba lagi
+    $banned = '/\b(terbaik|terbagus|termurah|terlengkap|terpercaya|termahal|nomor\s*(1|satu)|no\.?\s*1|paling\s+(murah|bagus|baik|lengkap))\b/iu';
+    $final = '';
+    $last = '';
+    for ($try = 0; $try < 3 && $final === ''; $try++) {
+        $raw = ollama_chat($model, $system, $user, ['temperature' => 0.7 + 0.1 * $try]);
+        $cand = $clean($raw);
+        if ($cand !== '') $last = $cand;
+        if ($cand !== '' && !preg_match($banned, $cand)) $final = $cand;
+    }
+    if ($final === '' && $last !== '') {            // semua percobaan mengandung klaim: buang kata klaimnya
+        $final = trim(preg_replace('/\s{2,}/u', ' ', preg_replace($banned, '', $last)));
+    }
+    if ($final === '') out(['error' => 'Judul AI tidak layak setelah 3 percobaan: ' . mb_substr($raw, 0, 100)], 502);
+    out(['title' => $final]);
+}
 // =====================================================================
 // AKSI 2: SATU PARAGRAF
 // =====================================================================

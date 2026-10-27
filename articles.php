@@ -17,12 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'sched
 
 // Label status WordPress sebuah artikel
 function wp_badge(array $a): string {
-    $map = ['publish' => ['Terbit', 'bg-green-100 text-green-800'], 'future' => ['Terjadwal', 'bg-blue-100 text-blue-800'],
-            'draft' => ['Draft', 'bg-slate-200 text-slate-700'], 'pending' => ['Review', 'bg-amber-100 text-amber-800'], 'private' => ['Privat', 'bg-slate-200 text-slate-700']];
-    if (!empty($a['wp_error'])) return '<span class="text-xs bg-red-100 text-red-800 px-1.5 rounded" title="' . h($a['wp_error']) . '">WP gagal</span>';
-    if (empty($a['wp_post_id'])) return '<span class="text-xs bg-slate-100 text-slate-500 px-1.5 rounded">belum dikirim</span>';
-    [$l, $c] = $map[$a['wp_state']] ?? [$a['wp_state'], 'bg-slate-100'];
-    return '<span class="text-xs ' . $c . ' px-1.5 rounded">WP: ' . h($l) . '</span>';
+    $pill = 'text-xs px-2 py-0.5 rounded-full font-medium border border-current/20 ';
+    $map = ['publish' => ['Terbit', 'bg-emerald-500/15 text-emerald-300'], 'future' => ['Terjadwal', 'bg-amber-500/15 text-amber-300'],
+            'draft' => ['Draft', 'bg-white/10 text-gray-300'], 'pending' => ['Review', 'bg-cyan-500/15 text-cyan-300'], 'private' => ['Privat', 'bg-white/10 text-gray-300']];
+    if (!empty($a['wp_error'])) return '<span class="' . $pill . 'bg-rose-500/15 text-rose-300" title="' . h($a['wp_error']) . '">WP gagal</span>';
+    if (empty($a['wp_post_id'])) return '<span class="' . $pill . 'bg-white/5 text-[#ADADAD]">belum dikirim</span>';
+    [$l, $c] = $map[$a['wp_state']] ?? [$a['wp_state'], 'bg-white/10 text-gray-300'];
+    return '<span class="' . $pill . $c . '">WP: ' . h($l) . '</span>';
 }
 
 // Hapus
@@ -54,93 +55,78 @@ $unsent = (int) rows("SELECT COUNT(*) c FROM articles WHERE wp_post_id IS NULL")
 $list = rows("SELECT id, title, keyword, lokasi, model, status, created_at, CHAR_LENGTH(content) len, publish_at, wp_post_id, wp_state, wp_error, wp_url
               FROM articles $where ORDER BY id DESC LIMIT $per OFFSET " . (($page - 1) * $per));
 
-$btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg';
+$btn = 'bg-[#0078D4] hover:bg-[#106EBE] text-white text-sm font-medium py-2 px-4 rounded-lg';
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $article ? h($article['keyword']) . ' - ' : '' ?>Daftar Artikel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 min-h-screen py-8 text-slate-800">
-<div class="max-w-4xl mx-auto px-4">
+<?php require_once __DIR__ . '/ui.php'; ui_head(($article ? $article['keyword'] . ' - ' : '') . 'Artikel - Argen'); ui_nav('articles'); ?>
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
-    <div class="flex justify-between items-start mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-slate-900">Daftar Artikel</h1>
-            <p class="text-slate-600 text-sm mt-1"><?= $total ?> artikel tersimpan.</p>
-        </div>
-        <div class="flex gap-2">
-            <a href="index.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">← Generator</a>
-            <a href="settings.php" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">⚙ Pengaturan</a>
-        </div>
+    <div class="mb-6">
+        <h1 class="text-3xl font-semibold tracking-tight text-white">Artikel Tersimpan</h1>
+        <p class="text-[#ADADAD] text-sm mt-1"><?= $total ?> artikel tersimpan.</p>
     </div>
-
-    <?php if (!empty($_GET['msg'])): ?><div class="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm"><?= h($_GET['msg']) ?></div><?php endif; ?>
+    <?php if (!empty($_GET['msg'])): ?><div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm"><?= h($_GET['msg']) ?></div><?php endif; ?>
 
 <?php if ($viewId): ?>
     <?php if (!$article): ?>
-        <div class="bg-white p-6 rounded-xl border border-slate-200">Artikel tidak ditemukan. <a href="articles.php" class="text-blue-600 underline">Kembali ke daftar</a></div>
+        <div class="bg-[#1F1F1F] p-6 rounded-xl border border-white/10">Artikel tidak ditemukan. <a href="articles.php" class="text-[#4CC2FF] underline">Kembali ke daftar</a></div>
     <?php else:
         $sources = json_decode($article['sources'] ?? '[]', true) ?: [];
         $paras = preg_split('/\R\s*\R/', trim($article['content']));
     ?>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="bg-[#1F1F1F] p-6 rounded-xl shadow-lg shadow-black/30 border border-white/10">
             <div class="flex flex-wrap gap-2 items-center text-xs mb-3">
-                <span class="bg-blue-100 text-blue-800 font-semibold px-2.5 py-0.5 rounded">#<?= $article['id'] ?></span>
-                <?php if ($article['lokasi'] !== ''): ?><span class="bg-slate-100 px-2.5 py-0.5 rounded">📍 <?= h($article['lokasi']) ?></span><?php endif; ?>
-                <span class="bg-slate-100 px-2.5 py-0.5 rounded"><?= h($article['model']) ?></span>
-                <span class="bg-slate-100 px-2.5 py-0.5 rounded"><?= h($article['mode']) ?></span>
-                <?php if ($article['status'] === 'partial'): ?><span class="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded">Sebagian gagal</span><?php endif; ?>
-                <span class="text-slate-500"><?= h($article['created_at']) ?></span>
+                <span class="bg-[#0078D4]/20 text-[#4CC2FF] font-semibold px-2.5 py-0.5 rounded">#<?= $article['id'] ?></span>
+                <?php if ($article['lokasi'] !== ''): ?><span class="bg-[#2D2D2D] px-2.5 py-0.5 rounded">📍 <?= h($article['lokasi']) ?></span><?php endif; ?>
+                <span class="bg-[#2D2D2D] px-2.5 py-0.5 rounded"><?= h($article['model']) ?></span>
+                <span class="bg-[#2D2D2D] px-2.5 py-0.5 rounded"><?= h($article['mode']) ?></span>
+                <?php if ($article['status'] === 'partial'): ?><span class="bg-amber-500/15 text-amber-300 px-2.5 py-0.5 rounded">Sebagian gagal</span><?php endif; ?>
+                <span class="text-[#ADADAD]"><?= h($article['created_at']) ?></span>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900"><?= h($article['keyword']) ?></h2>
-            <?php if ($article['title'] !== ''): ?><p class="text-slate-500 text-sm"><?= h($article['title']) ?></p><?php endif; ?>
+            <h2 class="text-2xl font-bold text-white"><?= h($article['keyword']) ?></h2>
+            <?php if ($article['title'] !== ''): ?><p class="text-[#ADADAD] text-sm"><?= h($article['title']) ?></p><?php endif; ?>
 
-            <div id="body" class="mt-4 space-y-4 leading-relaxed text-[15px] border-t border-slate-100 pt-4">
+            <div id="body" class="mt-4 space-y-4 leading-relaxed text-[15px] border-t border-white/5 pt-4">
                 <?php foreach ($paras as $p): ?><p><?= nl2br(h($p)) ?></p><?php endforeach; ?>
             </div>
 
             <?php if ($sources): ?>
-                <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500">
+                <div class="mt-6 pt-4 border-t border-white/5 text-xs text-[#ADADAD]">
                     <strong>Sumber (Wikipedia, CC BY-SA):</strong>
                     <?php foreach ($sources as $s): ?>
-                        <a href="<?= h($s['url']) ?>" target="_blank" rel="noopener" class="text-blue-600 underline mr-2"><?= h($s['title']) ?></a>
+                        <a href="<?= h($s['url']) ?>" target="_blank" rel="noopener" class="text-[#4CC2FF] underline mr-2"><?= h($s['title']) ?></a>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
 
-            <div class="mt-6 pt-4 border-t border-slate-100">
+            <div class="mt-6 pt-4 border-t border-white/5">
                 <div class="font-semibold text-sm mb-2">WordPress <?= wp_badge($article) ?></div>
                 <form method="POST" class="flex flex-wrap gap-3 items-end">
                     <input type="hidden" name="action" value="schedule"><input type="hidden" name="id" value="<?= $article['id'] ?>">
-                    <label class="text-xs text-slate-600">Tanggal publish
-                        <input type="datetime-local" name="publish_at" value="<?= $article['publish_at'] ? h(str_replace(' ', 'T', substr($article['publish_at'], 0, 16))) : '' ?>" class="block mt-1 p-2 border border-slate-300 rounded-lg text-sm">
+                    <label class="text-xs text-gray-300">Tanggal publish
+                        <input type="datetime-local" name="publish_at" value="<?= $article['publish_at'] ? h(str_replace(' ', 'T', substr($article['publish_at'], 0, 16))) : '' ?>" class="block mt-1 p-2 border border-white/15 rounded-lg text-sm">
                     </label>
-                    <label class="text-xs text-slate-600">Status
-                        <select name="wp_target_status" class="block mt-1 p-2 border border-slate-300 rounded-lg text-sm bg-white">
+                    <label class="text-xs text-gray-300">Status
+                        <select name="wp_target_status" class="block mt-1 p-2 border border-white/15 rounded-lg text-sm bg-[#1F1F1F]">
                             <option value="">(bawaan: <?= h(WP_STATUSES[wp_cfg()['status']] ?? 'Terbit') ?>)</option>
                             <?php foreach (WP_STATUSES as $k => $l): ?><option value="<?= $k ?>" <?= $article['wp_target_status'] === $k ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?>
                         </select>
                     </label>
-                    <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm py-2 px-3 rounded-lg">Simpan jadwal</button>
+                    <button class="bg-[#2D2D2D] hover:bg-[#383838] text-white text-sm py-2 px-3 rounded-lg">Simpan jadwal</button>
                     <button type="button" class="wp-send <?= $btn ?>" data-id="<?= $article['id'] ?>"><?= $article['wp_post_id'] ? 'Perbarui di WordPress' : 'Kirim ke WordPress' ?></button>
                 </form>
                 <div id="wp-result" class="mt-2 text-xs">
-                    <?php if ($article['wp_error']): ?><span class="text-red-700"><?= h($article['wp_error']) ?></span><?php endif; ?>
-                    <?php if ($article['wp_url']): ?><a href="<?= h($article['wp_url']) ?>" target="_blank" rel="noopener" class="text-blue-600 underline"><?= h($article['wp_url']) ?></a><?php endif; ?>
+                    <?php if ($article['wp_error']): ?><span class="text-rose-300"><?= h($article['wp_error']) ?></span><?php endif; ?>
+                    <?php if ($article['wp_url']): ?><a href="<?= h($article['wp_url']) ?>" target="_blank" rel="noopener" class="text-[#4CC2FF] underline"><?= h($article['wp_url']) ?></a><?php endif; ?>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">Terbit + tanggal masa depan = terjadwal; tanggal lampau = tanggal mundur (backdate); kosong = terbit sekarang.</p>
+                <p class="text-xs text-[#ADADAD] mt-1">Terbit + tanggal masa depan = terjadwal; tanggal lampau = tanggal mundur (backdate); kosong = terbit sekarang.</p>
             </div>
 
             <div class="mt-6 flex gap-3 items-center">
                 <button id="copy" class="<?= $btn ?>">Salin teks</button>
-                <a href="articles.php" class="text-sm text-slate-600">← Kembali ke daftar</a>
+                <a href="articles.php" class="text-sm text-gray-300">← Kembali ke daftar</a>
                 <form method="POST" class="ml-auto" onsubmit="return confirm('Hapus artikel ini?')">
                     <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $article['id'] ?>">
-                    <button class="text-red-600 text-sm">Hapus</button>
+                    <button class="text-rose-400 text-sm">Hapus</button>
                 </form>
             </div>
         </div>
@@ -155,44 +141,44 @@ $btn = 'bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 r
 
 <?php else: ?>
     <form method="GET" class="mb-4 flex gap-2">
-        <input name="q" value="<?= h($q) ?>" placeholder="Cari kata kunci / wilayah / isi artikel..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        <input name="q" value="<?= h($q) ?>" placeholder="Cari kata kunci / wilayah / isi artikel..." class="w-full p-2.5 border border-white/15 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#0078D4]">
         <button class="<?= $btn ?>">Cari</button>
     </form>
 
     <?php if ($unsent > 0): ?>
         <div class="mb-3 flex items-center gap-3 text-sm">
             <button id="wp-bulk" class="<?= $btn ?>">Kirim semua yang belum terkirim ke WordPress (<?= $unsent ?>)</button>
-            <span id="wp-bulk-status" class="text-xs text-slate-500"></span>
+            <span id="wp-bulk-status" class="text-xs text-[#ADADAD]"></span>
         </div>
     <?php endif; ?>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+    <div class="bg-[#1F1F1F] rounded-xl shadow-lg shadow-black/30 border border-white/10 divide-y divide-white/5">
         <?php foreach ($list as $a): ?>
             <div class="p-4 flex justify-between gap-4 items-center">
                 <a href="?id=<?= $a['id'] ?>" class="min-w-0 block">
-                    <div class="font-medium text-slate-900 truncate hover:text-blue-600"><?= h($a['keyword']) ?>
-                        <?php if ($a['status'] === 'partial'): ?><span class="text-xs bg-amber-100 text-amber-800 px-1.5 rounded ml-1">sebagian gagal</span><?php endif; ?>
+                    <div class="font-medium text-white truncate hover:text-[#4CC2FF]"><?= h($a['keyword']) ?>
+                        <?php if ($a['status'] === 'partial'): ?><span class="text-xs bg-amber-500/15 text-amber-300 px-1.5 rounded ml-1">sebagian gagal</span><?php endif; ?>
                     </div>
-                    <div class="text-xs text-slate-500 mt-0.5">
+                    <div class="text-xs text-[#ADADAD] mt-0.5">
                         #<?= $a['id'] ?> · <?= $a['lokasi'] !== '' ? '📍 ' . h($a['lokasi']) . ' · ' : '' ?><?= h($a['model']) ?> · <?= number_format($a['len']) ?> karakter · <?= h($a['created_at']) ?>
                         <?= wp_badge($a) ?>
                         <?= $a['publish_at'] ? '· 🗓 ' . h(substr($a['publish_at'], 0, 16)) : '' ?>
                     </div>
                 </a>
-                <button type="button" class="wp-send text-blue-600 text-sm shrink-0" data-id="<?= $a['id'] ?>" data-sent="<?= $a['wp_post_id'] ? 1 : 0 ?>"><?= $a['wp_post_id'] ? 'Perbarui WP' : 'Kirim WP' ?></button>
+                <button type="button" class="wp-send text-[#4CC2FF] text-sm shrink-0" data-id="<?= $a['id'] ?>" data-sent="<?= $a['wp_post_id'] ? 1 : 0 ?>"><?= $a['wp_post_id'] ? 'Perbarui WP' : 'Kirim WP' ?></button>
                 <form method="POST" onsubmit="return confirm('Hapus artikel ini?')" class="shrink-0">
                     <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $a['id'] ?>">
-                    <button class="text-red-600 text-sm">Hapus</button>
+                    <button class="text-rose-400 text-sm">Hapus</button>
                 </form>
             </div>
         <?php endforeach; ?>
-        <?php if (!$list): ?><div class="p-8 text-center text-sm text-slate-500"><?= $q !== '' ? 'Tidak ada artikel yang cocok.' : 'Belum ada artikel. Buat dulu di halaman Generator.' ?></div><?php endif; ?>
+        <?php if (!$list): ?><div class="p-8 text-center text-sm text-[#ADADAD]"><?= $q !== '' ? 'Tidak ada artikel yang cocok.' : 'Belum ada artikel. Buat dulu di halaman Generator.' ?></div><?php endif; ?>
     </div>
 
     <?php if ($pages > 1): ?>
         <div class="mt-4 flex justify-center gap-1 text-sm">
             <?php for ($i = 1; $i <= $pages; $i++): ?>
-                <a href="?p=<?= $i ?>&q=<?= urlencode($q) ?>" class="px-3 py-1 rounded <?= $i === $page ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200' ?>"><?= $i ?></a>
+                <a href="?p=<?= $i ?>&q=<?= urlencode($q) ?>" class="px-3 py-1 rounded <?= $i === $page ? 'bg-[#0078D4] text-white' : 'bg-[#1F1F1F] border border-white/10' ?>"><?= $i ?></a>
             <?php endfor; ?>
         </div>
     <?php endif; ?>

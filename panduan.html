@@ -5,37 +5,58 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panduan Instalasi Argen</title>
 <style>
+  /* Fluent Design 2 - Dark Mode (lihat .claude/skills/argen-ui/SKILL.md) */
   :root {
-    --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --muted: #64748b; --line: #e2e8f0;
-    --accent: #2563eb; --accent-soft: #eff6ff; --code-bg: #0f172a; --code-text: #e2e8f0;
-    --warn-bg: #fffbeb; --warn-line: #fcd34d; --ok-bg: #f0fdf4; --ok-line: #86efac;
+    color-scheme: dark;
+    --bg: #0F0F0F; --card: #1F1F1F; --text: #FFFFFF; --muted: #ADADAD; --line: rgba(255,255,255,.10);
+    --accent: #4CC2FF; --accent-solid: #0078D4; --accent-soft: rgba(0,120,212,.18);
+    --code-bg: #141414; --code-text: #e2e8f0; --inline-code-bg: #2D2D2D; --inline-code: #7ee7f0;
+    --warn-bg: rgba(255,185,0,.10); --warn-line: rgba(255,185,0,.35);
+    --ok-bg: rgba(16,124,16,.18); --ok-line: rgba(16,124,16,.55);
+  }  html.light {
+    color-scheme: light;
+    --bg: #F5F5F5; --card: #FFFFFF; --text: #242424; --muted: #5F5F5F; --line: rgba(0,0,0,.10);
+    --accent: #0F6CBD; --accent-soft: rgba(15,108,189,.12);
+    --code-bg: #F0F0F0; --code-text: #242424; --inline-code-bg: #EBEBEB; --inline-code: #0F548C;
+    --warn-bg: #FFF4CE; --warn-line: #E8C65A; --ok-bg: #DFF6DD; --ok-line: #8CCB88;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --line: #334155;
-      --accent: #60a5fa; --accent-soft: #1e3a5f; --code-bg: #020617; --code-text: #e2e8f0;
-      --warn-bg: #422006; --warn-line: #a16207; --ok-bg: #052e16; --ok-line: #15803d;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html.light .topnav { background: rgba(245,245,245,.80); }
+  html.light .topnav .brand { color: #242424; }
+  html.light .topnav a.l:hover, html.light .topnav a.l.on { color: #242424; }
+  html.light section { box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+  html.light .code pre { background: #F3F3F3; border: 1px solid var(--line); }
+  html.light .copy { background: #E1E1E1; color: #242424; }
+  html.light .copy:hover { background: #D2D2D2; }
+  #theme-switch { margin-left: auto; display: flex; flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--card); font-size: 12px; }
+  #theme-switch button { all: unset; cursor: pointer; padding: 4px 10px; border-radius: 6px; color: var(--muted); }
+  #theme-switch button:hover { color: var(--text); }
+  #theme-switch button[aria-pressed="true"] { background: #0078D4; color: #fff; }  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", Inter, system-ui, sans-serif; }
   .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 2rem; margin: 0 0 4px; }
+  .topnav { position: sticky; top: 0; z-index: 50; background: rgba(15,15,15,.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+  .topnav .in { max-width: 1152px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 24px; overflow-x: auto; }
+  .topnav .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; text-decoration: none; }
+  .topnav .brand b { background: var(--accent-solid); border-radius: 6px; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .topnav a.l { color: var(--muted); text-decoration: none; font-size: 14px; padding: 0 12px; height: 56px; display: flex; align-items: center; position: relative; white-space: nowrap; }
+  .topnav a.l:hover { color: #fff; }
+  .topnav a.l.on { color: #fff; font-weight: 600; }
+  .topnav a.l.on::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent-solid); }
+  h1 { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 4px; }
   .sub { color: var(--muted); margin: 0 0 24px; }
   nav { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
   nav strong { display: block; margin-bottom: 6px; }
   nav ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 24px; }
   nav a { color: var(--accent); text-decoration: none; }
   nav a:hover { text-decoration: underline; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.3); }
   h2 { font-size: 1.3rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
-  h2 .n { background: var(--accent); color: #fff; border-radius: 999px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-size: .95rem; flex: none; }
+  h2 .n { background: var(--accent-solid); color: #fff; border-radius: 999px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-size: .95rem; flex: none; }
   h3 { font-size: 1.05rem; margin: 20px 0 6px; }
   p { margin: 8px 0; }
   ol.steps, ul { padding-left: 22px; }
   li { margin: 4px 0; }
   a { color: var(--accent); }
-  code { background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 5px; font: .9em ui-monospace, Consolas, monospace; }
+  code { background: var(--inline-code-bg); color: var(--inline-code); padding: 1px 6px; border-radius: 5px; font: .9em ui-monospace, Consolas, monospace; }
   .code { position: relative; margin: 10px 0; }
   .code pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font: .88rem/1.5 ui-monospace, Consolas, monospace; }
   .code pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
@@ -50,12 +71,37 @@
   footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 24px; }
   @media (max-width: 600px) { nav ol { columns: 1; } h1 { font-size: 1.6rem; } }
 </style>
-</head>
+<script>
+  // Tema: dark (bawaan) | light | auto; dibagi dengan halaman PHP lewat localStorage "argen-theme"
+  (function () {
+    var t = 'dark';
+    try { t = localStorage.getItem('argen-theme') || 'dark'; } catch (e) {}
+    var q = /[?&]theme=(dark|light|auto)/.exec(location.search); if (q) t = q[1];
+    var light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+    var h = document.documentElement; h.classList.toggle('light', light); h.dataset.theme = t;
+  })();
+</script></head>
 <body>
+<header class="topnav">
+  <div class="in">
+    <a class="brand" href="index.php"><b>A</b><span>Argen</span></a>
+    <div style="display:flex;height:56px">
+      <a class="l" href="index.php">Beranda</a>
+      <a class="l" href="articles.php">Artikel</a>
+      <a class="l" href="settings.php">Pengaturan</a>
+      <a class="l on" href="panduan.html">Panduan</a>
+    </div>
+    <div id="theme-switch" role="group" aria-label="Tema tampilan">
+      <button type="button" data-t="dark" aria-pressed="false">Gelap</button>
+      <button type="button" data-t="light" aria-pressed="false">Terang</button>
+      <button type="button" data-t="auto" aria-pressed="false">Auto</button>
+    </div>
+  </div>
+</header>
 <div class="wrap">
 
   <h1>Panduan Instalasi Argen</h1>
-  <p class="sub">Auto Article Generator: artikel otomatis per kata kunci dan wilayah, ditulis AI lokal (Ollama). Untuk komputer Windows baru yang belum punya Laragon maupun Ollama.</p>
+  <p class="sub">Auto Article Generator: artikel otomatis per kata kunci dan wilayah, ditulis AI lokal (Ollama). Untuk komputer Windows baru yang belum punya Laragon maupun Ollama. <strong>Diperbarui 27 Oktober 2026.</strong></p>
 
   <nav>
     <strong>Daftar isi</strong>
@@ -69,6 +115,8 @@
       <li><a href="#model">Unduh model AI</a></li>
       <li><a href="#jalan">Jalankan aplikasi</a></li>
       <li><a href="#pakai">Cara pakai singkat</a></li>
+      <li><a href="#alur">Cara kerja &amp; tips kualitas</a></li>
+      <li><a href="#tema">Tema tampilan</a></li>
       <li><a href="#wordpress">Publikasi ke WordPress</a></li>
       <li><a href="#masalah">Pemecahan masalah</a></li>
     </ol>
@@ -168,9 +216,9 @@
           <li><strong>Sumber Web</strong>: tentukan dari mana AI mengambil bahan. Bawaan: Wikipedia Indonesia. Bisa menambah wiki lain (mis. <code>en.wikipedia.org</code>), pencarian web (Bing, bisa dibatasi ke satu situs), atau alamat halaman dengan <code>{q}</code>. Gunakan tombol <strong>Uji</strong> untuk melihat apa yang berhasil diambil. Makin banyak sumber relevan, makin kaya isi artikel.</li>
         </ul>
       </li>
-      <li>Kembali ke halaman utama, isi <strong>Judul Artikel</strong> dan <strong>Daftar Kata Kunci</strong> (satu per baris).</li>
+      <li>Kembali ke halaman utama, isi <strong>Daftar Kata Kunci</strong> (satu per baris). Setiap kata kunci dikombinasikan dengan setiap kelurahan pada Target Wilayah: 2 kata kunci × 3 kelurahan = 6 artikel, masing-masing disimpan terpisah. <strong>Batas Jumlah Artikel per Proses</strong> (awal 50) mencegah satu kota langsung membuat ratusan artikel.</li>
       <li>Pilih <strong>Target Wilayah</strong> dan <strong>Model Ollama</strong>.</li>
-      <li>Pilih template master atau tulis template di kolom <strong>Template Artikel</strong>.</li>
+      <li>Pilih template master (judul dan isinya terisi sekaligus) atau tulis sendiri di kartu <strong>Template Artikel</strong>: kolom <strong>Judul Artikel</strong> (boleh memakai <code>{judul}</code> agar judulnya ditulis AI) dan kolom <strong>Isi Artikel</strong>.</li>
       <li>Klik <strong>Proses &amp; Generate Artikel</strong>. Hasil muncul di <strong>Hasil Preview</strong> dan otomatis tersimpan; lihat semuanya di <strong>📄 Artikel</strong> (cari, baca, salin, hapus).</li>
     </ol>
 
@@ -182,6 +230,7 @@
       <tr><td><code>{lokasi}</code></td><td>Satu nama wilayah acak</td></tr>
       <tr><td><code>{3 lokasi}</code></td><td>Hingga 3 wilayah berbeda ("A, B dan C"); jika wilayah kurang, tampil semuanya</td></tr>
       <tr><td><code>{jual|dijual|menyediakan|}</code></td><td>Satu pilihan acak (boleh kosong)</td></tr>
+      <tr><td><code>{judul}</code> / <code>{judul: arahan}</code></td><td>Hanya di kolom Judul Artikel: bagian judul yang ditulis AI bersamaan dengan artikelnya (setelah kerangka tersusun), sehingga selaras dengan isi. Contoh judul: <code>{Jual|Pusat} {keyword} di {lokasi}: {judul}</code></td></tr>
       <tr><td><code>{paragraf}</code></td><td>Satu paragraf yang ditulis AI</td></tr>
       <tr><td><code>{paragraf: jelaskan apa itu {keyword}}</code></td><td>Satu paragraf AI sesuai instruksi Anda, berbekal referensi dari sumber web untuk kata kunci dan wilayah</td></tr>
       <tr><td><code>{nama}</code></td><td>Shortkey master buatan Anda</td></tr>
@@ -189,6 +238,9 @@
     </table>
 
     <h3>Contoh template</h3>
+    <p>Judul Artikel:</p>
+    <div class="code"><pre><code>{Jual|Pusat} {keyword} di {lokasi}: {judul}</code></pre><button class="copy">Salin</button></div>
+    <p>Isi Artikel:</p>
     <div class="code"><pre><code>Kami {jual|menyediakan} {keyword} di {3 lokasi}.
 
 {paragraf}
@@ -199,6 +251,31 @@
 
 {paragraf}</code></pre><button class="copy">Salin</button></div>
     <div class="note">Setiap <code>{paragraf}</code> adalah satu panggilan ke Ollama. Semakin banyak kata kunci dan <code>{paragraf}</code>, semakin lama prosesnya.</div>
+  </section>
+
+  <section id="alur">
+    <h2>Cara kerja &amp; tips kualitas</h2>
+    <p>Setiap artikel dibuat dengan urutan berikut, supaya paragrafnya saling nyambung dan tidak mengarang:</p>
+    <ol class="steps">
+      <li><strong>Bahan:</strong> aplikasi mengambil referensi dari <em>Sumber Web</em> yang aktif (bawaan Wikipedia Indonesia) untuk kata kunci dan untuk wilayahnya.</li>
+      <li><strong>Kerangka:</strong> AI menyusun satu kalimat maksud keseluruhan artikel dan satu pokok bahasan berbeda untuk tiap <code>{paragraf}</code>.</li>
+      <li><strong>Judul:</strong> bila judul memakai <code>{judul}</code>, AI menulisnya setelah kerangka jadi, sehingga selaras dengan isi.</li>
+      <li><strong>Paragraf:</strong> tiap <code>{paragraf}</code> ditulis berurutan, tahu peran dan pokok bahasannya (pembuka, lanjutan, penutup) serta teks sebelumnya.</li>
+      <li><strong>Pembersihan &amp; simpan:</strong> label, kalimat meta, nomor telepon/email/URL karangan, dan aksara asing dibuang; paragraf dibatasi 5 kalimat. Hasil disimpan ke database.</li>
+    </ol>
+    <h3>Tips supaya hasilnya bagus</h3>
+    <ul>
+      <li>Pakai model umum seperti <code>qwen2.5:7b</code> (RAM 16 GB) atau <code>qwen2.5:3b</code> (lebih ringan), bukan model khusus kode.</li>
+      <li>Aktifkan <strong>Pencarian Web (Bing)</strong> di Pengaturan &gt; Sumber Web untuk kata kunci niaga yang tidak ada di Wikipedia. Uji dulu dengan tombol <strong>Uji</strong>.</li>
+      <li><strong>Tulis fakta usaha sendiri</strong> (nama usaha, harga, alamat, kontak, promo) langsung di template, di antara <code>{paragraf}</code>. AI hanya diminta menulis hal umum yang didukung referensi dan dilarang mengarang kontak atau klaim "terbaik/termurah".</li>
+      <li>Kurangi jumlah <code>{paragraf}</code> (mis. 2) bila ingin lebih cepat dan minim karangan. Satu <code>{paragraf}</code> sekitar 45 detik pada model 7B.</li>
+      <li>Beri arahan pada <code>{paragraf: ...}</code> dan <code>{judul: ...}</code> untuk hasil yang lebih terarah.</li>
+    </ul>
+  </section>
+
+  <section id="tema">
+    <h2>Tema tampilan</h2>
+    <p>Di pojok kanan menu atas ada pengalih <strong>Gelap / Terang / Auto</strong>. Gelap adalah tampilan awal; <strong>Auto</strong> mengikuti pengaturan Windows/browser. Pilihan tersimpan di browser dan berlaku di semua halaman, termasuk panduan ini. Untuk pratinjau, tambahkan <code>?theme=light</code> atau <code>?theme=dark</code> di alamat halaman.</p>
   </section>
 
   <section id="wordpress">
@@ -216,7 +293,30 @@
       <tr><td>Terbit tanpa tanggal</td><td>Terbit saat dikirim</td></tr>
       <tr><td>Draft / Review / Privat + tanggal</td><td>Tersimpan dengan tanggal itu, tidak diterbitkan</td></tr>
     </table>
-    <div class="note">Jika koneksi ditolak (401) padahal password benar, hosting membuang header Authorization. Tambahkan di <code>.htaccess</code> WordPress, di bawah <code>RewriteEngine On</code>: <code>RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]</code>. Jika 403, plugin keamanan atau firewall hosting kemungkinan memblokir REST API.</div>
+    <h3>Password yang dipakai</h3>
+    <p>Isi kolom password dengan <strong>Application Password</strong>, bukan password login. Bentuknya 24 karakter dalam 6 kelompok, mis. <code>abcd efgh ijkl mnop qrst uvwx</code>, dan hanya tampil sekali saat dibuat. Username diisi username WordPress (bukan email), dan alamat situs harus <code>https://</code>.</p>
+
+    <h3>Jika uji koneksi gagal (401)</h3>
+    <table>
+      <tr><th>Cek</th><th>Penjelasan dan perbaikan</th></tr>
+      <tr><td>Alamat memakai <code>http://</code></td><td>Application Password hanya aktif di HTTPS. Ganti alamat menjadi <code>https://situsanda.com</code>.</td></tr>
+      <tr><td>Password bukan 24 karakter</td><td>Yang tersimpan kemungkinan password login atau tersalin tidak utuh. Buat Application Password baru di <strong>Pengguna &gt; Profil Anda</strong> dan salin seluruhnya.</td></tr>
+      <tr><td>Header login dibuang hosting</td><td>Gejalanya: password palsu pun dijawab "belum login", bukan "password salah". Umum di hosting LiteSpeed/CGI. Tambahkan baris berikut di <code>.htaccess</code> <strong>folder utama WordPress</strong> (yang berisi <code>wp-config.php</code>), <strong>di atas</strong> baris <code># BEGIN WordPress</code>, bukan di bawahnya.</td></tr>
+      <tr><td>Cache / plugin keamanan</td><td>Kosongkan cache LiteSpeed. Pastikan plugin keamanan (Wordfence, Solid Security, "Disable REST API") atau ModSecurity/Imunify360 tidak menonaktifkan Application Password atau memblokir header Authorization.</td></tr>
+    </table>
+    <div class="code"><pre><code># --- teruskan header login ---
+&lt;IfModule mod_rewrite.c&gt;
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+&lt;/IfModule&gt;
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+# --- akhir ---
+
+# BEGIN WordPress
+...(isi bawaan WordPress, jangan diubah)...
+# END WordPress</code></pre><button class="copy">Salin</button></div>
+    <div class="note">Jika 403, plugin keamanan atau firewall hosting kemungkinan memblokir REST API, atau akun tidak berhak menulis post (gunakan Administrator/Editor). Pesan error di Argen sudah menyebut penyebab yang paling mungkin, termasuk peringatan otomatis bila alamat masih <code>http://</code> atau password bukan 24 karakter.</div>
     <div class="note">Artikel terjadwal diterbitkan oleh WP-Cron, yang berjalan saat situs dikunjungi. Di situs sepi, terbitnya bisa terlambat; pasang cron job asli di hosting yang memanggil <code>wp-cron.php</code> bila perlu ketepatan waktu. Situs harus memakai HTTPS agar Application Password aktif.</div>
   </section>
 
@@ -231,17 +331,25 @@
       <tr><td>Proses sangat lambat atau timeout</td><td>Komputer kurang kuat untuk model itu. Pakai model lebih kecil (<code>qwen2.5:3b</code>), kurangi kata kunci, atau tutup aplikasi berat lain. Batas waktu per paragraf 120 detik.</td></tr>
       <tr><td>Tampilan polos tanpa desain</td><td>Halaman memuat Tailwind CSS dari internet. Pastikan komputer terhubung ke internet.</td></tr>
       <tr><td>Data Wikipedia tidak muncul</td><td>Normal bila kata kunci tidak ada di Wikipedia Indonesia; AI memakai informasi umum. Perlu internet untuk mengambilnya.</td></tr>
+      <tr><td>"(gagal: …)" pada sebuah paragraf</td><td>Ollama mati/timeout, atau keluaran model rusak 3 kali berturut-turut (mis. berpindah ke bahasa Mandarin). Artikel tetap disimpan dengan tanda <em>sebagian gagal</em>; hapus lalu buat ulang, atau coba model lain.</td></tr>
+      <tr><td>Isi artikel memuat klaim yang tidak benar</td><td>Referensinya terlalu sedikit sehingga model mengisi sendiri. Aktifkan Pencarian Web (Bing), tambah sumber, dan tulis fakta usaha langsung di template.</td></tr>
+      <tr><td>WordPress: "Login ditolak (401)"</td><td>Lihat bagian <a href="#wordpress">Publikasi ke WordPress</a> &gt; "Jika uji koneksi gagal".</td></tr>
       <tr><td>Ekstensi <code>curl</code> tidak ada</td><td>Laragon Full sudah mengaktifkannya. Jika tidak, aktifkan <code>extension=curl</code> di <strong>Menu &gt; PHP &gt; php.ini</strong>, lalu Reload.</td></tr>
     </table>
 
     <h3>Struktur file</h3>
     <table>
       <tr><th>File</th><th>Fungsi</th></tr>
-      <tr><td><code>index.php</code></td><td>Halaman generator dan preview</td></tr>
-      <tr><td><code>settings.php</code></td><td>Pengaturan master: template, shortkey, wilayah</td></tr>
-      <tr><td><code>generate.php</code></td><td>Endpoint yang meminta Ollama menulis satu paragraf</td></tr>
-      <tr><td><code>process.php</code></td><td>Halaman hasil versi lama (belum memakai template dan shortkey master)</td></tr>
-      <tr><td><code>config.php</code></td><td>Koneksi database dan pembuatan tabel otomatis</td></tr>
+      <tr><td><code>index.php</code></td><td>Halaman generator (kata kunci, wilayah, template, publikasi) dan preview</td></tr>
+      <tr><td><code>articles.php</code></td><td>Daftar dan pembaca artikel tersimpan; kirim ke WordPress</td></tr>
+      <tr><td><code>settings.php</code></td><td>Pengaturan master: template, shortkey, wilayah, sumber web, WordPress</td></tr>
+      <tr><td><code>generate.php</code></td><td>Endpoint Ollama: kerangka, judul, dan paragraf; membersihkan keluaran</td></tr>
+      <tr><td><code>sources.php</code></td><td>Pengambil referensi dari sumber web (wiki, pencarian web, halaman)</td></tr>
+      <tr><td><code>save_article.php</code></td><td>Endpoint penyimpan artikel ke database</td></tr>
+      <tr><td><code>wp.php</code>, <code>wp_publish.php</code></td><td>Pengiriman artikel ke WordPress (REST API, jadwal, backdate)</td></tr>
+      <tr><td><code>ui.php</code></td><td>Kerangka tampilan bersama: menu atas, tema gelap/terang</td></tr>
+      <tr><td><code>config.php</code></td><td>Koneksi database dan pembuatan/upgrade tabel otomatis</td></tr>
+      <tr><td><code>process.php</code></td><td>Halaman hasil versi lama (tidak dipakai alur utama)</td></tr>
     </table>
 
     <h3>Cadangan data</h3>
@@ -261,5 +369,20 @@
     });
   });
 </script>
-</body>
+<script>
+  (function () {
+    var box = document.getElementById('theme-switch');
+    function apply(t) {
+      var light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+      var h = document.documentElement; h.classList.toggle('light', light); h.dataset.theme = t;
+      box.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.t === t ? 'true' : 'false'); });
+    }
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      try { localStorage.setItem('argen-theme', b.dataset.t); } catch (x) {}
+      apply(b.dataset.t);
+    });
+    apply(document.documentElement.dataset.theme || 'dark');
+  })();
+</script></body>
 </html>

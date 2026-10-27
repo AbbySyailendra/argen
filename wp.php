@@ -54,10 +54,27 @@ function wp_http(array $cfg, string $method, string $route, ?array $body = null)
     return [$code, $json, $err, $raw];
 }
 
+// Kesalahan konfigurasi yang paling sering membuat login ditolak
+function wp_config_warnings(array $cfg): array {
+    $w = [];
+    $host = parse_url($cfg['url'], PHP_URL_HOST) ?: '';
+    $local = in_array($host, ['localhost', '127.0.0.1'], true) || str_ends_with($host, '.test') || str_ends_with($host, '.local');
+    if (str_starts_with($cfg['url'], 'http://') && !$local) {
+        $w[] = 'alamat situs memakai http:// padahal Application Password hanya aktif di HTTPS; ganti menjadi https://' . $host;
+    }
+    $plain = preg_replace('/\s+/', '', $cfg['pass']);
+    if ($cfg['pass'] !== '' && strlen($plain) !== 24) {
+        $w[] = 'Application Password seharusnya 24 karakter (6 kelompok × 4, mis. "abcd efgh ijkl mnop qrst uvwx") tetapi yang tersimpan ' . strlen($plain) . ' karakter; ini kemungkinan password login biasa atau tidak tersalin utuh, buat Application Password baru di Pengguna > Profil Anda';
+    }
+    return $w;
+}
 // Terjemahkan kegagalan menjadi pesan yang bisa ditindaklanjuti
 function wp_explain(int $code, $json, string $err, $raw): string {
     if ($code === 0) return 'Tidak bisa terhubung' . ($err !== '' ? ': ' . $err : '') . '. Periksa alamat situs dan koneksi internet.';
     if ($code === 401 || ($json['code'] ?? '') === 'rest_not_logged_in' || ($json['code'] ?? '') === 'incorrect_password') {
+        $cfg = wp_cfg();
+        $hints = wp_config_warnings($cfg);
+        if ($hints) return 'Login ditolak (401). Kemungkinan penyebab: ' . implode(' | ', $hints);
         return 'Login ditolak (401). Periksa username dan Application Password. Jika benar, hosting mungkin membuang header Authorization: tambahkan di .htaccess WordPress baris  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]  (di bawah RewriteEngine On).';
     }
     if ($code === 403) return 'Ditolak (403)' . (isset($json['message']) ? ': ' . $json['message'] : '') . '. Plugin keamanan/WAF hosting mungkin memblokir REST API, atau akun tidak punya hak menulis post.';
