@@ -2,12 +2,28 @@
 // Koneksi database + tabel master (template, shortkey). Tabel wilayah sudah ada.
 mysqli_report(MYSQLI_REPORT_OFF);
 
-// ---- Pengaturan koneksi (ubah di sini jika perlu) ----
-const DB_HOST = '127.0.0.1';
-const DB_USER = 'root';
-const DB_PASS = '';
-const DB_NAME = 'argen';
-const DB_PORT = 3309;   // Laragon bawaan biasanya 3306
+// ---- Pengaturan koneksi ----
+// Nilai bawaan cocok untuk Laragon. Untuk server/VPS, jangan ubah file ini: salin config.local.example.php
+// menjadi config.local.php (tidak ikut git) atau isi environment variable ARGEN_DB_HOST, ARGEN_DB_USER, dst.
+if (is_file(__DIR__ . '/config.local.php')) require __DIR__ . '/config.local.php';
+function cfg_const(string $name, $default) {
+    if (!defined($name)) {
+        $env = getenv('ARGEN_' . $name);
+        define($name, $env !== false && $env !== '' ? (is_int($default) ? (int) $env : $env) : $default);
+    }
+}
+cfg_const('DB_HOST', '127.0.0.1');
+cfg_const('DB_USER', 'root');
+cfg_const('DB_PASS', '');
+cfg_const('DB_NAME', 'argen');
+cfg_const('DB_PORT', 3309);                          // Laragon di komputer ini 3309; server umumnya 3306
+cfg_const('OLLAMA_URL', 'http://127.0.0.1:11434');   // alamat Ollama (jangan dibuka ke publik)
+cfg_const('SETUP_KEY', '');                          // kunci membuat admin pertama dari web bila bukan akses lokal
+cfg_const('DEBUG', '0');
+
+error_reporting(E_ALL);
+ini_set('display_errors', DEBUG === '1' ? '1' : '0');   // di server jangan tampilkan galat ke pengunjung
+ini_set('log_errors', '1');
 
 function db(): mysqli {
     static $m = null;
@@ -15,7 +31,9 @@ function db(): mysqli {
 
     $m = new mysqli(DB_HOST, DB_USER, DB_PASS, '', DB_PORT);
     if ($m->connect_error) {
-        die("<div style='font-family:sans-serif;padding:20px;color:red;'>Koneksi Database Gagal (" . DB_HOST . ':' . DB_PORT . '): ' . htmlspecialchars($m->connect_error) . "<br>Pastikan MySQL di Laragon sudah Start dan port di config.php sesuai.</div>");
+        error_log('Argen: koneksi database gagal (' . DB_HOST . ':' . DB_PORT . '): ' . $m->connect_error);
+        http_response_code(500);
+        die("<div style='font-family:sans-serif;padding:20px;color:red;'>Koneksi database gagal." . (DEBUG === '1' ? ' (' . DB_HOST . ':' . DB_PORT . '): ' . htmlspecialchars($m->connect_error) : '') . "<br>Periksa MySQL sudah berjalan dan pengaturan di config.local.php (atau config.php) sesuai.</div>");
     }
     $m->set_charset('utf8mb4');
 
@@ -89,6 +107,20 @@ function db(): mysqli {
             ADD COLUMN wp_sent_at DATETIME NULL");
     }
 
+    $m->query("CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        pass_hash VARCHAR(255) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) CHARACTER SET utf8mb4");
+    $m->query("CREATE TABLE IF NOT EXISTS login_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ip VARCHAR(45) NOT NULL,
+        username VARCHAR(50) NOT NULL DEFAULT '',
+        at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX (ip, at)
+    ) CHARACTER SET utf8mb4");
+
     $m->query("CREATE TABLE IF NOT EXISTS master_settings (
         `key` VARCHAR(60) PRIMARY KEY,
         `value` TEXT NOT NULL
@@ -110,6 +142,16 @@ function setting_set(string $key, string $value): void {
     $st->execute();
 }
 
+// Pengaturan Ollama yang bisa diubah di Pengaturan > AI (konteks lebih kecil = lebih ringan di server RAM kecil)
+function ollama_cfg(): array {
+    return [
+        'num_ctx'    => max(1024, min(32768, (int) setting_get('ai_num_ctx', '8192'))),
+        'keep_alive' => setting_get('ai_keep_alive', '30m'),
+        'timeout'    => max(30, min(1800, (int) setting_get('ai_timeout', '300'))),
+        'model'      => setting_get('ai_default_model', ''),
+    ];
+}
+
 // Nama yang dipakai sistem dan tidak boleh dijadikan shortkey
 const RESERVED_KEYS = ['titles', 'title', 'keyword', 'lokasi', 'paragraf', 'judul', 'template'];
 
@@ -120,3 +162,7 @@ function rows(string $sql): array {
     $res = db()->query($sql);
     return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 }
+
+require_once __DIR__ . '/auth.php';
+auth_boot();
+if (!defined('ARGEN_PUBLIC')) auth_guard();

@@ -15,8 +15,9 @@ foreach ($wilayah_rows as $w) {
 }
 
 // Ambil daftar model yang benar-benar terpasang di Ollama
+$default_model = ollama_cfg()['model'];
 $ollama_models = [];
-$ch = curl_init('http://127.0.0.1:11434/api/tags');
+$ch = curl_init(OLLAMA_URL . '/api/tags');
 curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 3]);
 $tags = curl_exec($ch);
 curl_close($ch);
@@ -131,7 +132,7 @@ if ($tags !== false) {
                     <label for="model" class="block font-semibold text-gray-200 mb-2">Model Ollama</label>
                     <select id="model" name="model" class="w-full p-3 border border-white/15 rounded-lg focus:ring-2 focus:ring-[#0078D4] bg-[#1F1F1F] text-sm outline-none">
                         <?php foreach ($ollama_models as $m): ?>
-                            <option value="<?php echo htmlspecialchars($m); ?>"><?php echo htmlspecialchars($m); ?></option>
+                            <option value="<?php echo htmlspecialchars($m); ?>"<?= $m === $default_model ? ' selected' : '' ?>><?php echo htmlspecialchars($m); ?></option>
                         <?php endforeach; ?>
                         <?php if (!$ollama_models): ?>
                             <option value="">(Ollama tidak terdeteksi / belum ada model)</option>

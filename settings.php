@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 $db = db();
 
 $tab = $_GET['tab'] ?? 'templates';
-if (!in_array($tab, ['templates', 'shortkeys', 'wilayah', 'sources', 'wordpress'], true)) $tab = 'templates';
+if (!in_array($tab, ['templates', 'shortkeys', 'wilayah', 'sources', 'wordpress', 'ai'], true)) $tab = 'templates';
 
 $flash = $_GET['msg'] ?? '';
 $error = '';
@@ -60,6 +60,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'delete') {
             $db->query('DELETE FROM master_shortkeys WHERE id=' . $id);
             $ok = 'Shortkey dihapus.';
+        }
+    }
+
+    if ($tab === 'ai' && $action === 'save_ai') {
+        $ctx = (int) ($_POST['ai_num_ctx'] ?? 0);
+        $tmo = (int) ($_POST['ai_timeout'] ?? 0);
+        $keep = trim($_POST['ai_keep_alive'] ?? '');
+        if ($ctx < 1024 || $ctx > 32768) {
+            $error = 'Konteks harus antara 1024 dan 32768.';
+        } elseif ($tmo < 30 || $tmo > 1800) {
+            $error = 'Batas waktu harus antara 30 dan 1800 detik.';
+        } elseif (!preg_match('/^(-1|\d+[smh]?)$/', $keep)) {
+            $error = 'Lama model di memori: angka dengan satuan s/m/h (mis. 30m), atau -1 untuk selamanya.';
+        } else {
+            setting_set('ai_num_ctx', (string) $ctx);
+            setting_set('ai_timeout', (string) $tmo);
+            setting_set('ai_keep_alive', $keep);
+            setting_set('ai_default_model', trim($_POST['ai_default_model'] ?? ''));
+            $ok = 'Pengaturan AI disimpan.';
         }
     }
 
@@ -184,6 +203,20 @@ if ($tab === 'sources' && isset($_GET['test'])) {
     }
 }
 
+// Status Ollama + model terpasang
+$aiStatus = null;
+if ($tab === 'ai') {
+    $ch = curl_init(OLLAMA_URL . '/api/tags');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 4]);
+    $raw = curl_exec($ch);
+    $aiStatus = ['ok' => false, 'models' => [], 'err' => curl_error($ch)];
+    curl_close($ch);
+    if ($raw !== false && is_array($j = json_decode($raw, true))) {
+        $aiStatus['ok'] = true;
+        foreach ($j['models'] ?? [] as $m) $aiStatus['models'][] = ['name' => $m['name'], 'size' => round(($m['size'] ?? 0) / 1073741824, 1)];
+    }
+}
+
 // Uji koneksi WordPress
 $wpTest = null;
 if ($tab === 'wordpress') {
@@ -229,6 +262,7 @@ $tabCls = fn($t) => 'relative px-4 py-3 text-sm whitespace-nowrap -mb-px border-
         <a href="?tab=wilayah" class="<?= $tabCls('wilayah') ?>">Wilayah (<?= $wilTotal ?>)</a>
         <a href="?tab=sources" class="<?= $tabCls('sources') ?>">Sumber Web (<?= count($srcs) ?>)</a>
         <a href="?tab=wordpress" class="<?= $tabCls('wordpress') ?>">WordPress</a>
+        <a href="?tab=ai" class="<?= $tabCls('ai') ?>">AI (Ollama)</a>
     </div>
     <?php if ($flash): ?><div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm"><?= h($flash) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm"><?= h($error) ?></div><?php endif; ?>
@@ -299,6 +333,56 @@ $tabCls = fn($t) => 'relative px-4 py-3 text-sm whitespace-nowrap -mb-px border-
             </div>
         <?php endforeach; ?>
         <?php if (!$keys): ?><div class="p-6 text-sm text-[#ADADAD]">Belum ada shortkey.</div><?php endif; ?>
+    </div>
+
+<?php elseif ($tab === 'ai'):
+    $ai = ollama_cfg();
+    $av = fn($k, $d) => h($_POST[$k] ?? $d);
+?>
+    <div class="bg-[#1F1F1F] p-6 rounded-xl shadow-lg shadow-black/30 border border-white/10 mb-6">
+        <h2 class="font-semibold mb-1">Status Ollama</h2>
+        <p class="text-xs text-[#ADADAD] mb-3">Alamat: <code class="px-1 rounded"><?= h(OLLAMA_URL) ?></code> (diatur di config.local.php).</p>
+        <?php if ($aiStatus['ok']): ?>
+            <div class="rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-300 text-sm px-3 py-2 mb-3">Terhubung. <?= count($aiStatus['models']) ?> model terpasang.</div>
+            <div class="divide-y divide-white/5 border border-white/10 rounded-lg text-sm">
+                <?php foreach ($aiStatus['models'] as $m): ?>
+                    <div class="flex justify-between px-3 py-2"><span><?= h($m['name']) ?></span><span class="text-xs text-[#ADADAD]"><?= $m['size'] ?> GB</span></div>
+                <?php endforeach; ?>
+                <?php if (!$aiStatus['models']): ?><div class="px-3 py-2 text-[#ADADAD]">Belum ada model. Jalankan <code class="px-1 rounded">ollama pull qwen2.5:3b</code> di server.</div><?php endif; ?>
+            </div>
+        <?php else: ?>
+            <div role="alert" class="rounded-lg border border-rose-400/30 bg-rose-500/10 text-rose-300 text-sm px-3 py-2">Tidak bisa terhubung ke Ollama<?= $aiStatus['err'] ? ': ' . h($aiStatus['err']) : '' ?>. Pastikan layanan Ollama berjalan (<code class="px-1 rounded">systemctl status ollama</code>).</div>
+        <?php endif; ?>
+    </div>
+    <div class="bg-[#1F1F1F] p-6 rounded-xl shadow-lg shadow-black/30 border border-white/10 mb-6">
+        <h2 class="font-semibold mb-1">Pengaturan model</h2>
+        <p class="text-xs text-[#ADADAD] mb-4">Untuk server kecil (2 core, RAM 8 GB) disarankan konteks 4096, model <code class="px-1 rounded">qwen2.5:3b</code>, dan batas waktu 600 detik.</p>
+        <form method="POST" class="space-y-3">
+            <input type="hidden" name="action" value="save_ai">
+            <label class="block text-xs text-gray-300">Model bawaan di halaman Generator
+                <select name="ai_default_model" class="<?= $input ?> bg-[#1F1F1F] mt-1">
+                    <option value="">(otomatis: urutan pertama)</option>
+                    <?php $dm = $_POST['ai_default_model'] ?? $ai['model']; foreach ($aiStatus['models'] as $m): ?>
+                        <option value="<?= h($m['name']) ?>" <?= $dm === $m['name'] ? 'selected' : '' ?>><?= h($m['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <div class="grid md:grid-cols-3 gap-3">
+                <label class="block text-xs text-gray-300">Konteks (num_ctx)
+                    <input type="number" name="ai_num_ctx" min="1024" max="32768" step="512" value="<?= $av('ai_num_ctx', $ai['num_ctx']) ?>" class="<?= $input ?> mt-1" required>
+                    <span class="text-[11px] text-[#ADADAD]">Lebih kecil = hemat RAM &amp; lebih cepat.</span>
+                </label>
+                <label class="block text-xs text-gray-300">Batas waktu per permintaan (detik)
+                    <input type="number" name="ai_timeout" min="30" max="1800" value="<?= $av('ai_timeout', $ai['timeout']) ?>" class="<?= $input ?> mt-1" required>
+                    <span class="text-[11px] text-[#ADADAD]">Naikkan bila CPU lambat.</span>
+                </label>
+                <label class="block text-xs text-gray-300">Model bertahan di memori
+                    <input name="ai_keep_alive" value="<?= $av('ai_keep_alive', $ai['keep_alive']) ?>" class="<?= $input ?> mt-1" placeholder="30m" required>
+                    <span class="text-[11px] text-[#ADADAD]">mis. 30m, 2h, atau -1 (selalu).</span>
+                </label>
+            </div>
+            <button class="<?= $btn ?>">Simpan</button>
+        </form>
     </div>
 
 <?php elseif ($tab === 'wordpress'):

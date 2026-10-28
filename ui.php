@@ -111,13 +111,24 @@ function ui_nav(string $active): void {
                 </a>
             <?php endforeach; ?>
         </div>
+        <?php $me = function_exists('auth_user') ? auth_user() : null; ?>
         <div id="theme-switch" role="group" aria-label="Tema tampilan" class="ml-auto shrink-0 flex items-center rounded-lg border border-white/10 bg-[#1F1F1F] p-0.5 text-xs">
             <button type="button" data-t="dark" aria-pressed="false">Gelap</button>
             <button type="button" data-t="light" aria-pressed="false">Terang</button>
             <button type="button" data-t="auto" aria-pressed="false">Auto</button>
         </div>
+        <?php if ($me): ?>
+            <div class="shrink-0 flex items-center gap-3 text-sm">
+                <a href="akun.php" class="text-[#ADADAD] hover:text-white" title="Akun saya"><?= htmlspecialchars($me['username']) ?></a>
+                <form method="POST" action="logout.php"><button class="text-[#ADADAD] hover:text-white">Keluar</button></form>
+            </div>
+        <?php endif; ?>
     </div>
 </nav>
+<?php ui_theme_script(); ?>
+<?php }
+// Skrip pengalih tema (dipakai ui_nav dan halaman login)
+function ui_theme_script(): void { ?>
 <script>
     (function () {
         var box = document.getElementById('theme-switch'); if (!box) return;

@@ -118,6 +118,7 @@
       <li><a href="#alur">Cara kerja &amp; tips kualitas</a></li>
       <li><a href="#tema">Tema tampilan</a></li>
       <li><a href="#wordpress">Publikasi ke WordPress</a></li>
+      <li><a href="#vps">Pasang di VPS</a></li>
       <li><a href="#masalah">Pemecahan masalah</a></li>
     </ol>
   </nav>
@@ -157,14 +158,15 @@
     <h3>Opsi A (paling mudah): sesuaikan aplikasi</h3>
     <ol class="steps">
       <li>Di Laragon buka <strong>Menu &gt; Preferences &gt; Services &amp; Ports</strong> dan lihat port MySQL (misalnya 3306).</li>
-      <li>Buka <code>C:\laragon\www\argen\config.php</code> dan ubah barisnya:</li>
+      <li>Salin <code>config.local.example.php</code> menjadi <code>config.local.php</code> di folder aplikasi, lalu isi barisnya:</li>
     </ol>
-    <div class="code"><pre><code>const DB_PORT = 3306;   // samakan dengan port MySQL di Laragon</code></pre><button class="copy">Salin</button></div>
+    <div class="code"><pre><code>define('DB_PORT', 3306);   // samakan dengan port MySQL di Laragon</code></pre><button class="copy">Salin</button></div>
+    <p>Jika <code>config.local.php</code> tidak dibuat, aplikasi memakai bawaan <code>config.php</code> (port 3309).</p>
 
     <h3>Opsi B: sesuaikan Laragon</h3>
     <p>Ubah port MySQL di <strong>Preferences &gt; Services &amp; Ports</strong> menjadi <code>3309</code>, lalu <strong>Stop All</strong> dan <strong>Start All</strong>.</p>
 
-    <div class="tip">Jika <code>root</code> MySQL Anda memakai password, isi juga <code>DB_PASS</code> di <code>config.php</code>.</div>
+    <div class="tip">Jika <code>root</code> MySQL Anda memakai password, isi juga <code>DB_PASS</code> di <code>config.local.php</code>.</div>
   </section>
 
   <section id="database">
@@ -201,6 +203,7 @@
     <ol class="steps">
       <li>Pastikan Laragon <strong>Start All</strong> dan Ollama aktif.</li>
       <li>Buka browser ke <code>http://localhost/argen/</code>. Setelah klik kanan Laragon &gt; <strong>Apache/Nginx &gt; Reload</strong>, bisa juga <code>http://argen.test</code>.</li>
+      <li>Pertama kali dibuka, aplikasi meminta <strong>membuat akun admin</strong> (username dan kata sandi min. 10 karakter). Dari komputer yang sama dengan server, tidak perlu kunci setup. Akun berikutnya ditambah di menu nama akun.</li>
       <li>Dropdown <strong>Model Ollama</strong> terisi otomatis dari model yang terpasang. Jika kosong, lihat <a href="#masalah">pemecahan masalah</a>.</li>
     </ol>
   </section>
@@ -320,6 +323,116 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
     <div class="note">Artikel terjadwal diterbitkan oleh WP-Cron, yang berjalan saat situs dikunjungi. Di situs sepi, terbitnya bisa terlambat; pasang cron job asli di hosting yang memanggil <code>wp-cron.php</code> bila perlu ketepatan waktu. Situs harus memakai HTTPS agar Application Password aktif.</div>
   </section>
 
+  <section id="vps">
+    <h2>Pasang di VPS (online)</h2>
+    <p>Panduan ini untuk <strong>Ubuntu 24.04</strong> dengan Nginx, PHP-FPM, MariaDB, dan Ollama dalam satu server. Contoh spesifikasi: <strong>2 core CPU, RAM 8 GB</strong>. Ganti <code>contoh.com</code> dengan domain Anda.</p>
+    <div class="note">Langkah dan angka di bagian ini belum diuji di VPS sungguhan; fitur login, pembatasan akses, dan pengaturan AI sudah diuji di Laragon. Jalankan langkah satu per satu dan cek hasilnya sebelum lanjut.</div>
+
+    <h3>Yang realistis untuk 2 core / 8 GB</h3>
+    <table>
+      <tr><th>Hal</th><th>Saran</th></tr>
+      <tr><td>Model</td><td><code>qwen2.5:3b</code> (sekitar 2 GB). Model <code>qwen2.5:7b</code> muat di RAM tetapi di 2 core CPU sangat lambat (satu artikel bisa belasan menit) dan sisa RAM tipis.</td></tr>
+      <tr><td>Pengaturan &gt; AI</td><td>Konteks <code>4096</code>, batas waktu <code>600</code> detik, model bertahan <code>30m</code>.</td></tr>
+      <tr><td>Penggunaan</td><td>Satu pembuatan artikel pada satu waktu. Tab browser harus tetap terbuka selama proses berjalan.</td></tr>
+      <tr><td>Swap</td><td>Tambahkan 4 GB sebagai pengaman agar server tidak mati saat RAM penuh.</td></tr>
+    </table>
+
+    <h3>1. Siapkan server</h3>
+    <div class="code"><pre><code>sudo apt update &amp;&amp; sudo apt -y upgrade
+sudo ufw allow OpenSSH &amp;&amp; sudo ufw allow 80 &amp;&amp; sudo ufw allow 443 &amp;&amp; sudo ufw enable
+
+# swap 4 GB
+sudo fallocate -l 4G /swapfile &amp;&amp; sudo chmod 600 /swapfile
+sudo mkswap /swapfile &amp;&amp; sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab</code></pre><button class="copy">Salin</button></div>
+    <p>Jangan membuka port <code>11434</code> (Ollama) dan <code>3306</code> (database) ke internet. Firewall di atas sudah hanya membuka SSH, 80, dan 443.</p>
+
+    <h3>2. Pasang paket</h3>
+    <div class="code"><pre><code>sudo apt -y install nginx mariadb-server git unzip curl \
+  php-fpm php-cli php-mysql php-curl php-mbstring certbot python3-certbot-nginx</code></pre><button class="copy">Salin</button></div>
+
+    <h3>3. Database</h3>
+    <div class="code"><pre><code>sudo mysql -e "CREATE DATABASE argen CHARACTER SET utf8mb4;
+CREATE USER 'argen'@'localhost' IDENTIFIED BY 'GANTI_SANDI_KUAT';
+GRANT ALL PRIVILEGES ON argen.* TO 'argen'@'localhost';"</code></pre><button class="copy">Salin</button></div>
+    <p>Tabel dibuat otomatis oleh aplikasi saat pertama dibuka.</p>
+
+    <h3>4. Ollama</h3>
+    <div class="code"><pre><code>curl -fsSL https://ollama.com/install.sh | sh
+sudo systemctl edit ollama</code></pre><button class="copy">Salin</button></div>
+    <p>Pada editor yang terbuka, isi (batasi agar tidak membebani RAM dan hanya melayani lokal):</p>
+    <div class="code"><pre><code>[Service]
+Environment="OLLAMA_HOST=127.0.0.1:11434"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"</code></pre><button class="copy">Salin</button></div><div class="code"><pre><code>sudo systemctl restart ollama
+ollama pull qwen2.5:3b</code></pre><button class="copy">Salin</button></div>
+
+    <h3>5. Pasang aplikasi</h3>
+    <div class="code"><pre><code>sudo git clone https://github.com/AbbySyailendra/argen.git /var/www/argen
+cd /var/www/argen
+sudo cp config.local.example.php config.local.php
+sudo nano config.local.php      # isi DB_PASS, DB_PORT=3306, SETUP_KEY (teks acak panjang)
+sudo chown -R www-data:www-data /var/www/argen
+sudo chmod 640 config.local.php</code></pre><button class="copy">Salin</button></div>
+    <p><code>config.local.php</code> tidak ikut git dan berisi sandi, jadi hanya bisa dibaca pemilik dan <code>www-data</code>.</p>
+
+    <h3>6. Nginx</h3>
+    <div class="code"><pre><code>sudo nano /etc/nginx/sites-available/argen</code></pre><button class="copy">Salin</button></div><div class="code"><pre><code>server {
+    listen 80;
+    server_name contoh.com;
+    root /var/www/argen;
+    index index.php;
+    client_max_body_size 5m;
+
+    # file sensitif: tidak boleh dibuka dari web
+    location ~ ^/(config\.local(\.example)?|adduser)\.php$ { deny all; }
+    location ~ /\.(?!well-known) { deny all; }
+
+    location / { try_files $uri $uri/ =404; }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;   # sesuaikan versi PHP (php -v)
+        fastcgi_read_timeout 900s;                    # satu permintaan AI bisa lama
+    }
+}</code></pre><button class="copy">Salin</button></div><div class="code"><pre><code>sudo ln -s /etc/nginx/sites-available/argen /etc/nginx/sites-enabled/
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code></pre><button class="copy">Salin</button></div>
+
+    <h3>7. HTTPS</h3>
+    <p>Arahkan DNS domain (record A) ke IP server, lalu:</p>
+    <div class="code"><pre><code>sudo certbot --nginx -d contoh.com</code></pre><button class="copy">Salin</button></div>
+    <p>Gunakan HTTPS sebelum login dipakai. Tanpa HTTPS, kata sandi terkirim polos dan Application Password WordPress tidak aman.</p>
+
+    <h3>8. Buat akun dan atur AI</h3>
+    <ol class="steps">
+      <li>Cara aman dari terminal server: <code>cd /var/www/argen &amp;&amp; sudo -u www-data php adduser.php admin</code> (masukkan kata sandi min. 10 karakter).</li>
+      <li>Atau buka <code>https://contoh.com/login.php</code>, isi akun pertama beserta <strong>kunci setup</strong> (<code>SETUP_KEY</code> di <code>config.local.php</code>). Setelah ada akun, formulir pembuatan akun tertutup otomatis.</li>
+      <li>Masuk, lalu buka <strong>Pengaturan &gt; AI (Ollama)</strong>: pastikan status <em>Terhubung</em>, pilih model <code>qwen2.5:3b</code>, konteks <code>4096</code>, batas waktu <code>600</code>. Simpan.</li>
+      <li>Isi <strong>Pengaturan &gt; WordPress</strong>, lalu uji koneksi. Di server yang bisa mengirim header dengan benar, masalah 401 dari hosting kecil kemungkinan muncul.</li>
+    </ol>
+
+    <h3>Login dan keamanan yang sudah ada</h3>
+    <table>
+      <tr><th>Fitur</th><th>Keterangan</th></tr>
+      <tr><td>Login wajib</td><td>Semua halaman dan endpoint (termasuk <code>generate.php</code> dan <code>save_article.php</code>) menolak akses tanpa login. Permintaan AJAX mendapat respons 401.</td></tr>
+      <tr><td>Kata sandi</td><td>Disimpan sebagai hash (bcrypt/argon). Minimal 10 karakter.</td></tr>
+      <tr><td>Batas percobaan</td><td>5 kali salah per akun atau 10 per IP dalam 15 menit akan dikunci sementara.</td></tr>
+      <tr><td>Sesi</td><td>Cookie HttpOnly, SameSite=Strict, Secure di HTTPS; keluar otomatis setelah 8 jam tidak aktif; ID sesi diganti saat login.</td></tr>
+      <tr><td>CSRF</td><td>Permintaan POST dari asal lain ditolak (cek Origin/Referer). Keluar memakai POST.</td></tr>
+      <tr><td>Header</td><td>X-Frame-Options, nosniff, Referrer-Policy, dan HSTS (di HTTPS).</td></tr>
+      <tr><td>Kelola pengguna</td><td>Menu nama akun &gt; ganti sandi, tambah, dan hapus pengguna. Semua pengguna punya akses penuh.</td></tr>
+    </table>
+    <div class="note"><strong>Batasan:</strong> belum ada verifikasi dua langkah (2FA) dan belum ada peran (semua pengguna setara). Application Password WordPress tersimpan di database sebagai teks biasa agar bisa dipakai, jadi lindungi akses database dan berkas cadangan. Tampilan memuat Tailwind dari CDN, sehingga browser pengguna harus bisa membuka internet.</div>
+
+    <h3>Cadangan di server</h3>
+    <div class="code"><pre><code>mysqldump -u argen -p argen &gt; argen-$(date +%F).sql</code></pre><button class="copy">Salin</button></div>
+    <p>Jadwalkan lewat <code>cron</code> dan simpan salinannya di luar server.</p>
+
+    <h3>Jika lupa kata sandi</h3>
+    <div class="code"><pre><code>cd /var/www/argen &amp;&amp; sudo -u www-data php adduser.php nama_pengguna</code></pre><button class="copy">Salin</button></div>
+    <p>Memakai nama yang sudah ada akan mengganti kata sandinya.</p>
+  </section>
+
   <section id="masalah">
     <h2>Pemecahan masalah</h2>
     <table>
@@ -334,6 +447,10 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
       <tr><td>"(gagal: …)" pada sebuah paragraf</td><td>Ollama mati/timeout, atau keluaran model rusak 3 kali berturut-turut (mis. berpindah ke bahasa Mandarin). Artikel tetap disimpan dengan tanda <em>sebagian gagal</em>; hapus lalu buat ulang, atau coba model lain.</td></tr>
       <tr><td>Isi artikel memuat klaim yang tidak benar</td><td>Referensinya terlalu sedikit sehingga model mengisi sendiri. Aktifkan Pencarian Web (Bing), tambah sumber, dan tulis fakta usaha langsung di template.</td></tr>
       <tr><td>WordPress: "Login ditolak (401)"</td><td>Lihat bagian <a href="#wordpress">Publikasi ke WordPress</a> &gt; "Jika uji koneksi gagal".</td></tr>
+      <tr><td>"Sesi berakhir" / kembali ke halaman login</td><td>Tidak aktif lebih dari 8 jam atau akun dihapus. Masuk lagi. Di server, pastikan cookie tidak diblokir dan situs memakai satu alamat (jangan campur <code>www</code> dan tanpa <code>www</code>).</td></tr>
+      <tr><td>"Terlalu banyak percobaan gagal"</td><td>Tunggu 15 menit, atau ganti sandi dari terminal: <code>php adduser.php nama</code>.</td></tr>
+      <tr><td>"Permintaan ditolak (asal tidak cocok)"</td><td>Aplikasi dibuka lewat alamat yang berbeda dari alamat server (mis. reverse proxy yang mengubah header <code>Host</code>). Teruskan header Host asli di proxy.</td></tr>
+      <tr><td>502/504 di server saat membuat artikel</td><td>Batas waktu Nginx/PHP-FPM terlalu pendek. Pakai <code>fastcgi_read_timeout 900s</code> dan sesuaikan batas waktu di Pengaturan &gt; AI.</td></tr>
       <tr><td>Ekstensi <code>curl</code> tidak ada</td><td>Laragon Full sudah mengaktifkannya. Jika tidak, aktifkan <code>extension=curl</code> di <strong>Menu &gt; PHP &gt; php.ini</strong>, lalu Reload.</td></tr>
     </table>
 
@@ -342,13 +459,18 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
       <tr><th>File</th><th>Fungsi</th></tr>
       <tr><td><code>index.php</code></td><td>Halaman generator (kata kunci, wilayah, template, publikasi) dan preview</td></tr>
       <tr><td><code>articles.php</code></td><td>Daftar dan pembaca artikel tersimpan; kirim ke WordPress</td></tr>
-      <tr><td><code>settings.php</code></td><td>Pengaturan master: template, shortkey, wilayah, sumber web, WordPress</td></tr>
+      <tr><td><code>settings.php</code></td><td>Pengaturan master: template, shortkey, wilayah, sumber web, WordPress, AI (Ollama)</td></tr>
       <tr><td><code>generate.php</code></td><td>Endpoint Ollama: kerangka, judul, dan paragraf; membersihkan keluaran</td></tr>
       <tr><td><code>sources.php</code></td><td>Pengambil referensi dari sumber web (wiki, pencarian web, halaman)</td></tr>
       <tr><td><code>save_article.php</code></td><td>Endpoint penyimpan artikel ke database</td></tr>
       <tr><td><code>wp.php</code>, <code>wp_publish.php</code></td><td>Pengiriman artikel ke WordPress (REST API, jadwal, backdate)</td></tr>
       <tr><td><code>ui.php</code></td><td>Kerangka tampilan bersama: menu atas, tema gelap/terang</td></tr>
-      <tr><td><code>config.php</code></td><td>Koneksi database dan pembuatan/upgrade tabel otomatis</td></tr>
+      <tr><td><code>config.php</code></td><td>Koneksi database dan pembuatan/upgrade tabel otomatis; membaca <code>config.local.php</code> atau environment <code>ARGEN_*</code></td></tr>
+      <tr><td><code>config.local.php</code></td><td>Pengaturan server (sandi database, alamat Ollama, kunci setup). Dibuat dari <code>config.local.example.php</code>; tidak ikut git</td></tr>
+      <tr><td><code>auth.php</code>, <code>login.php</code>, <code>logout.php</code></td><td>Login, sesi, pembatasan percobaan, dan pemeriksaan asal permintaan</td></tr>
+      <tr><td><code>akun.php</code></td><td>Ganti sandi, tambah dan hapus pengguna</td></tr>
+      <tr><td><code>adduser.php</code></td><td>Membuat atau mengganti sandi pengguna dari terminal (CLI saja)</td></tr>
+      <tr><td><code>.htaccess</code></td><td>Memblokir berkas sensitif di Apache (untuk Nginx lihat bagian VPS)</td></tr>
       <tr><td><code>process.php</code></td><td>Halaman hasil versi lama (tidak dipakai alur utama)</td></tr>
     </table>
 

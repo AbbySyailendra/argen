@@ -1,0 +1,5 @@
+# Apache: blokir file sensitif. (Untuk Nginx lihat bagian "Pasang di VPS" di panduan.html)
+<FilesMatch "^(config\.local(\.example)?\.php|adduser\.php|\.gitignore|.*\.log)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes

@@ -85,20 +85,23 @@ if ($lokasi !== '') {
 
 // ---------- Panggilan Ollama ----------
 function ollama_chat(string $model, string $system, string $user, array $opts = [], ?string $format = null): string {
+    $ai = ollama_cfg();
+    set_time_limit($ai['timeout'] + 60);
     $body = [
+        'keep_alive' => $ai['keep_alive'],
         'model'    => $model,
         'stream'   => false,
         'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]],
-        'options'  => $opts + ['temperature' => 0.7, 'top_p' => 0.9, 'repeat_penalty' => 1.15, 'num_ctx' => 8192],
+        'options'  => $opts + ['temperature' => 0.7, 'top_p' => 0.9, 'repeat_penalty' => 1.15, 'num_ctx' => $ai['num_ctx']],
     ];
     if ($format) $body['format'] = $format;
 
-    $ch = curl_init('http://127.0.0.1:11434/api/chat');
+    $ch = curl_init(OLLAMA_URL . '/api/chat');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
         CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_TIMEOUT        => 240,
+        CURLOPT_TIMEOUT        => $ai['timeout'],
         CURLOPT_POSTFIELDS     => json_encode($body, JSON_UNESCAPED_UNICODE),
     ]);
     $response = curl_exec($ch);
